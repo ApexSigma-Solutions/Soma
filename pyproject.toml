@@ -1,0 +1,32 @@
+[tool.pyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "**/.git",
+    "OmegaVault",
+    "logs",
+    "docs",
+    "**/test_vault"
+]
+
+[tool.ruff]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "node_modules",
+    "OmegaVault",
+    "logs",
+    "docs",
+    "test_vault"
+]
+line-length = 88
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.14",
+]

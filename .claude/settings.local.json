@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker ps --filter \"name=apexsigma\" --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
+      "Bash(docker volume ls --filter \"name=apexsigma\" --format \"table {{.Name}}\\\\t{{.Driver}}\")",
+      "Bash(docker ps -a --filter \"name=redis\" --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
+      "Bash(docker stop apexsigma.postgres.stable)",
+      "Bash(docker stop apexsigma.neo4j.stable)",
+      "Bash(docker stop memos-redis)",
+      "Bash(docker run --rm -v apexsigma.postgres.data.stable:/source -v apexsigma.postgres.data:/target alpine sh -c \"cp -a /source/. /target/ 2>/dev/null || echo ''PostgreSQL data migrated''\")",
+      "Bash(docker-compose -f docker-compose.unified.yml up -d)",
+      "Bash(docker exec apexsigma.postgres pg_isready -U omega_user -d omega_kg_stable)",
+      "Bash(docker volume ls --filter \"name=omegakg\" --format \"table {{.Name}}\\\\t{{.Driver}}\")",
+      "Bash(ls -la Omega_KG_stable/alembic/versions/*.py)",
+      "Bash(docker exec apexsigma.postgres ls -la /usr/local/share/postgresql/extension/)",
+      "Bash(docker exec apexsigma.postgres sh -c \"ls -la /usr/local/lib/postgresql/ 2>/dev/null | grep -i vector || echo ''Directory not found or no vector files''\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"CREATE EXTENSION IF NOT EXISTS vector;\")",
+      "Bash(poetry run alembic upgrade head)",
+      "Bash(poetry run alembic current)",
+      "Bash(poetry run alembic history)",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"SELECT * FROM alembic_version ORDER BY version_num;\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"\\\\dt\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"SELECT tablename FROM pg_tables WHERE schemaname = ''public'';\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"CREATE TABLE IF NOT EXISTS alembic_version \\(version_num VARCHAR\\(32\\) NOT NULL PRIMARY KEY\\);\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"INSERT INTO alembic_version \\(version_num\\) VALUES \\(''000_create_base_tables''\\) ON CONFLICT \\(version_num\\) DO NOTHING;\")",
+      "Bash(python -c \"import asyncio; from alembic import command; from alembic.config import Config; cfg = Config\\(''alembic.ini''\\); asyncio.run\\(command.upgrade\\(cfg, ''000_create_base_tables''\\)\\)\")",
+      "Bash(poetry run python -m alembic upgrade 000_create_base_tables)",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"SELECT * FROM alembic_version;\")",
+      "Bash(python -c \"\nfrom alembic import command\nfrom alembic.config import Config\nimport logging\n\nlogging.basicConfig\\(level=logging.INFO\\)\n\ncfg = Config\\(''alembic.ini''\\)\ncommand.upgrade\\(cfg, ''001_create_omega_vectors_1024''\\)\n\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"DROP TABLE IF EXISTS alembic_version; DROP TABLE IF EXISTS omega_vectors_1024; DROP TABLE IF EXISTS raw_linear_events;\")",
+      "Bash(poetry run python -c \"\nfrom alembic import command\nfrom alembic.config import Config\n\ncfg = Config\\(''alembic.ini''\\)\ncommand.upgrade\\(cfg, ''head''\\)\nprint\\(''Migrations completed successfully!''\\)\n\")",
+      "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"SELECT tablename FROM pg_tables WHERE schemaname = ''public'' ORDER BY tablename;\")",
+      "Bash(poetry run alembic status)",
+      "Bash(poetry run alembic heads)",
+      "Bash(powershell -Command \"Get-Content ''D:\\\\agents\\\\kilocode\\\\storage\\\\settings\\\\mcp_settings.json'' | ConvertFrom-Json | ConvertTo-Json -Depth 32\")"
+    ]
+  },
+  "outputStyle": "default",
+  "enabledMcpjsonServers": [
+    "memos-mcp",
+    "serena"
+  ],
+  "enableAllProjectMcpServers": true
+}

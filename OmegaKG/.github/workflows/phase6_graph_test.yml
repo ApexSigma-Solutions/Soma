@@ -1,0 +1,66 @@
+name: Phase 6 Graph Verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "beta" ]
+    paths:
+      - "omega_kg/database/graph.py"
+      - "omega_kg/domain/linear/graph_writer.py"
+      - "omega_kg/domain/linear/models.py"
+      - "tests/integration/test_graph_sync.py"
+
+jobs:
+  verify-graph-topology:
+    runs-on: ubuntu-latest
+
+    services:
+      # Neo4j Service (The Target)
+      neo4j:
+        image: neo4j:5-community
+        env:
+          NEO4J_AUTH: neo4j/test_password
+        ports:
+          - 7688:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p test_password 'RETURN 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pip install poetry==2.2.0
+
+      - name: Install Dependencies
+        run: poetry install --with dev
+
+      - name: Wait for Neo4j
+        run: sleep 5
+
+      - name: Run Phase 6 Integration Test
+        env:
+          # Neo4j
+          NEO4J_URI: bolt://localhost:7688
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: test_password
+          # Postgres (not used but required by Settings)
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          # Linear (not used but required by Settings)
+          LINEAR_WEBHOOK_SECRET: test_webhook_secret
+          # Obsidian (not used but required by Settings)
+          OBSIDIAN_VAULT_PATH: ./vault
+        run: |
+          poetry run pytest tests/integration/test_graph_sync.py -v --tb=short

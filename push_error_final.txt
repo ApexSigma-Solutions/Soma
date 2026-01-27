@@ -1,0 +1,68 @@
+remote: error: GH013: Repository rule violations found for refs/heads/beta.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:      (?) Learn how to resolve a blocked push        
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push        
+remote:             
+remote:      (?) This repository does not have Secret Scanning enabled, but is eligible. Enable Secret Scanning to view and manage detected secrets.        
+remote:      Visit the repository settings page, https://github.com/ApexSigma-Solutions/Soma/settings/security_analysis        
+remote:             
+remote:             
+remote:       ΓÇöΓÇö Linear API Key ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö        
+remote:        locations:        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: config_backups/20251220_214958/Omega_KG_stable.env.backup:52        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-configuration.py:13        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-robust.py:12        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/ApexSigma-Solutions/Soma/security/secret-scanning/unblock-secret/38qjIgCmrRJaiLLuVedadTSzKYW        
+remote:             
+remote:             
+remote:       ΓÇöΓÇö GitHub Personal Access Token ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö        
+remote:        locations:        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: config_backups/20251220_214958/Omega_KG_stable.env.backup:59        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-configuration.py:21        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-robust.py:20        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/ApexSigma-Solutions/Soma/security/secret-scanning/unblock-secret/38qjIi00FLALpVESNywP9YoqWCO        
+remote:             
+remote:             
+remote:       ΓÇöΓÇö Perplexity API Key ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö        
+remote:        locations:        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: config_backups/20251220_214958/Omega_KG_stable.env.backup:77        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-configuration.py:29        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: scripts/maintenance/repair-mcp-robust.py:28        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/ApexSigma-Solutions/Soma/security/secret-scanning/unblock-secret/38qjIfuJcNvXzRHc3frfm0eCi60        
+remote:             
+remote:             
+remote:       ΓÇöΓÇö GitHub Personal Access Token ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö        
+remote:        locations:        
+remote:          - commit: b8f57696118f624ab3370b837ae9ed2e78190c9d        
+remote:            path: config_backups/20251220_214958/Omega_KG_stable.env.backup:176        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/ApexSigma-Solutions/Soma/security/secret-scanning/unblock-secret/38qjIc5kqKciRSlWOzWGFzSmI4R        
+remote:             
+remote: 
+remote: 
+To https://github.com/ApexSigma-Solutions/Soma.git
+ ! [remote rejected] beta -> beta (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/ApexSigma-Solutions/Soma.git'

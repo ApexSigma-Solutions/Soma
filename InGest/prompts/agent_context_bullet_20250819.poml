@@ -1,0 +1,55 @@
+<poml>
+    <!-- 
+        ID: agent_context_bullet_20250819.poml
+        Version: 1.0
+        Timestamp: 2025-08-19T22:25:00Z
+        Description: A token-efficient knowledge artifact for the development session on August 19, 2025.
+    -->
+
+    <Metadata>
+        <Objective>Resolve all critical blockers to stabilize the development and observability environments, then proceed with high-priority feature development.</Objective>
+        <AgentRoster>
+            <Primary>Gemini CLI, Claude Code</Primary>
+            <Support>Qwen-34B Thinking</Support>
+            <EmbeddingService>nomic-embed-text v1.5</EmbeddingService>
+        </AgentRoster>
+    </Metadata>
+
+    <SystemStatus>
+        <Summary>The local development environment is unstable due to linter and Python interpreter conflicts. Key services are blocked by dependency and observability issues. The `apexsigma_net` Docker network is operational, but services running on it are not fully healthy.</Summary>
+        <KeyDecisions>
+            <Decision>Neo4j is the designated Knowledge Graph store.</Decision>
+            <Decision>PostgreSQL is the designated log store.</Decision>
+            <Decision>The prompt library (.poml files) will be version-controlled in Git.</Decision>
+        </KeyDecisions>
+    </SystemStatus>
+
+    <CriticalPriorities>
+        <!-- These tasks must be completed to unblock all other development. -->
+        <Task id="1" project="Ecosystem-Wide">
+            <Action>Standardize Local Dev Environment</Action>
+            <Details>Upgrade Ruff to the latest version across all projects and correctly map the Python interpreters in the VS Code multi-root workspace settings to resolve linter errors.</Details>
+        </Task>
+        <Task id="2" project="InGest-LLM.as">
+            <Action>Finalize Observability Instrumentation</Action>
+            <Details>Debug the Langfuse integration to ensure LLM traces from the `InGest-LLM.as` service are visible in the Langfuse dashboard.</Details>
+        </Task>
+        <Task id="3" project="DevEnviro.as">
+            <Action>Fix 'psycopg' Dependency Error</Action>
+            <Details>Add 'psycopg2-binary' to the dependencies for the 'devenviro-api' service and rebuild its Docker container to resolve the critical startup failure.</Details>
+        </Task>
+    </CriticalPriorities>
+
+    <HighPriorities>
+        <!-- Once critical blockers are resolved, proceed with these tasks. -->
+        <Task id="4" project="memOS.as">
+            <Action>Implement Specific Graph API Endpoints</Action>
+            <Details>Develop the three specified endpoints (/related, /shortest-path, /subgraph) for the Neo4j Graph API.</Details>
+        </Task>
+        <Task id="5" project="InGest-LLM.as">
+            <Action>Prototype POML-based Context Generator</Action>
+            <Details>Begin implementation of the new prompt component library and dynamic context generation system.</Details>
+        </Task>
+    </HighPriorities>
+
+</poml>

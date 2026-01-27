@@ -1,0 +1,15 @@
+# Omega_KG – Copilot Instructions
+
+- **What this is**: FastAPI capture server (port 8765) plus Chrome extension that writes AI chats to Obsidian (`AI_Conversations/{platform}/`), Neo4j graph, and PostgreSQL events/vectors; Linear webhooks and CLI keep tasks in sync.
+- **Core files**: `capture_server.py` (lifespan, APScheduler every 5m, embedding worker poll 10s), `lifecycle.py` (auto Draft→Ready→Active→Blocked→Completed→Archived), `settings.py` (Bitwarden→env→defaults, ZERO_TRUST_REQUIRED hard-fails in stable), `database/graph.py` (AsyncGraphDriver), `database/session.py` (async SQLAlchemy), `domain/linear/*` (webhooks, mapper, graph_writer), `vector_store.py`/`workers/embedding_worker.py` (pgvector pipeline), `chrome-extension/` (manifest/config), `Tasks/` and vault markdown (dual persistence).
+- **Setup workflow**: `poetry install --with dev`; `cp .env.example .env` then set `OBSIDIAN_VAULT_PATH`, Neo4j/Postgres creds; `docker compose up -d neo4j postgres`; optional full stack `docker compose up -d`.
+- **Run**: `poetry run capture-server`; CLI helpers `poetry run omega init|sync|lifecycle --dry-run|status|report --email`; lifecycle/percolation scheduled inside capture_server.
+- **Tests**: pytest markers `unit`, `integration`, `requires_neo4j`, `requires_postgres`, `slow`, `smoke`; testcontainers provide Neo4j 5.x + Postgres pgvector (Py3.12 warnings filtered); examples `poetry run pytest -m "unit"`, `-m "requires_neo4j"`, or specific file `tests/test_capture.py::test_specific_function -v`.
+- **Quality gates**: `poetry run pre-commit run --all-files`; `poetry run ruff check --fix .`; `poetry run mypy omega_kg`; `poetry run bandit -c pyproject.toml -ll -r .`.
+- **Migrations**: `alembic revision --autogenerate -m "desc"`; `alembic upgrade head`; compose sets volumes by `ENV_TYPE` (dev=ephemeral, stable=locked) so use matching env when running migrations.
+- **Database rules**: Always use context managers for Neo4j sessions (sync or AsyncGraphDriver) to avoid leaks; health checks use `RETURN 1`; dual-write pattern keeps Neo4j + Obsidian markdown in sync; embeddings queued via `store_pending()` then processed async.
+- **Security/identity**: Bitwarden secrets take precedence, then env vars, then defaults; Chrome extension CORS expects exact extension ID; JWT exchange turns static API key into short-lived tokens for the extension.
+- **File/ID conventions**: Task discovery uses `Tasks/**/{uid}*.md`; conversation frontmatter IDs `CAP-{YYYYMMDD}-{HASH}`; platform names sanitized via `r'[<>:"|?*\x00-\x1f]'`; always read/write files with `encoding="utf-8"`.
+- **Gotchas**: Neo4j failure triggers mock mode; background scheduler runs every 5m; embedding worker polls every 10s; `.env` needed even when Bitwarden present for non-secret paths (e.g., vault); pgvector uses port 5433; Obsidian path must exist.
+
+Prefer concise changes, respect async patterns, and update tests/markers when touching database or scheduler logic. When in doubt, mirror existing patterns in `capture_server.py`, `lifecycle.py`, and `tests/conftest.py`.

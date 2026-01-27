@@ -1,0 +1,90 @@
+[tool.poetry]
+name = "memos-mcp"
+version = "0.1.0"
+description = "A FastMCP server for MemOS"
+authors = ["SigmaDev11 <steynsean11@gmail.com>"]
+readme = "README.md"
+packages = [{include = "memos_mcp", from = "src"}]
+
+[tool.poetry.dependencies]
+# Core Dependencies
+python = ">=3.12,<3.13"
+fastmcp = "^2.0.0"
+fastapi = ">=0.100.0"
+pydantic = "^2.0.0"
+pydantic-settings = "^2.0.0"
+neo4j = ">=6.0.0,<7.0.0"
+sqlalchemy = "^2.0.0"
+psycopg2-binary = "^2.9.0"
+asyncpg = "^0.30.0"
+pgvector = "^0.3.0"
+httpx = ">=0.28.0"
+uvicorn = ">=0.23.0"
+PyJWT = "^2.0.0"
+PyYAML = "^6.0.0"
+python-multipart = "^0.0.6"
+langfuse = "^3.3.0"
+redis = "^5.0.0"
+sse-starlette = "^3.1.2"
+structlog = "^25.5.0"
+# SimpleMem Stage 3 dependencies
+lancedb = "^0.20"
+pyarrow = "^18.0"
+rank-bm25 = "^0.2"
+ollama = "^0.4"
+
+[tool.poetry.group.dev.dependencies]
+# Development Dependencies
+ruff = "^0.1.0"
+pytest = "^7.0.0"
+pytest-asyncio = ">=0.23.0"
+mypy = "^1.0.0"
+pre-commit = "^3.0.0"
+pytest-cov = "^7.0.0"
+alembic = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+addopts = "-v --tb=short --strict-markers --disable-warnings"
+
+markers = [
+    "unit: unit tests",
+    "integration: integration tests",
+    "asyncio: asyncio tests",
+]
+
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::FutureWarning"
+]
+
+[tool.coverage.run]
+source = ["src/memos_mcp"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

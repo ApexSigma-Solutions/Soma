@@ -1,0 +1,16 @@
+---
+name: priority_tasks
+description: "Priority tasks component for immediate development focus"
+version: "1.0"
+---
+
+## Immediate Priorities
+
+{% for task in priorities %}
+### {{ task.priority }}: {{ task.task }}
+{% if task.project %}**Project**: {{ task.project }}{% endif %}  
+**Description**: {{ task.description }}
+{% if task.blockers %}**Blockers**: {{ task.blockers }}{% endif %}
+{% if task.dependencies %}**Dependencies**: {{ ', '.join(task.dependencies) }}{% endif %}
+
+{% endfor %}

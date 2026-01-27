@@ -1,0 +1,17 @@
+ApexSigma Pattern Specifications
+
+Tile Size: 200px x 200px
+Repeat Style: repeat (tileable)
+Opacity: Use at 10-30% for overlays, 100% for strong backgrounds
+Scaling: SVG scalable without loss; recommended 1x for UI, 3x for hero sections
+Padding: 0px (tile seamlessly)
+Colors: 
+  Dark BG: #1D2026
+  Accent: #37A7B7
+  Light BG: #F0F0F0
+
+Patterns:
+1. Geometric - Angular diamond inspired by Apex wolf silhouette
+2. CircuitFlow - Linear paths evoking circuitry and data flow
+3. GradientWave - Smooth curves for softer sections
+4. ApexGrid - Precise grid for structured layouts

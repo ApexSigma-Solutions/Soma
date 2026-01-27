@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omega_KG Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #161f27 0%, #1a252d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #1e2a35;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            border: 1px solid rgba(55, 153, 173, 0.2);
+        }
+
+        .header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: #3799ad;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .header p {
+            color: rgba(237, 238, 237, 0.7);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #edeeed;
+            font-size: 14px;
+        }
+
+        .label-helper {
+            display: block;
+            font-size: 12px;
+            color: rgba(237, 238, 237, 0.6);
+            font-weight: normal;
+            margin-top: 4px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(55, 153, 173, 0.3);
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.2);
+            color: #edeeed;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]::placeholder,
+        input[type="password"]::placeholder,
+        input[type="url"]::placeholder {
+            color: rgba(237, 238, 237, 0.4);
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #3799ad;
+            box-shadow: 0 0 0 3px rgba(55, 153, 173, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .input-group input {
+            flex: 1;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #019387 0%, #017a70 100%);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+        .btn-save:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(1, 147, 135, 0.4);
+            border-color: #FF7C87;
+        }
+
+        .btn-save:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: rgba(255, 124, 135, 0.1);
+            color: #FF7C87;
+            border: 1px solid #FF7C87;
+        }
+
+        .btn-clear:hover {
+            background: rgba(255, 124, 135, 0.15);
+            box-shadow: 0 4px 12px rgba(255, 124, 135, 0.2);
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-top: 16px;
+            display: none;
+            border-left: 3px solid;
+        }
+
+        .status-message.success {
+            background: rgba(1, 147, 135, 0.15);
+            color: #019387;
+            border-left-color: #019387;
+            display: block;
+        }
+
+        .status-message.error {
+            background: rgba(255, 124, 135, 0.15);
+            color: #FF7C87;
+            border-left-color: #FF7C87;
+            display: block;
+        }
+
+        .status-message.info {
+            background: rgba(55, 153, 173, 0.15);
+            color: #3799ad;
+            border-left-color: #3799ad;
+            display: block;
+        }
+
+        .info-box {
+            background: rgba(55, 153, 173, 0.1);
+            border-left: 4px solid #3799ad;
+            padding: 12px;
+            margin-bottom: 24px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: rgba(237, 238, 237, 0.9);
+        }
+
+        .info-box strong {
+            color: #3799ad;
+        }
+
+        .field-status {
+            font-size: 12px;
+            margin-top: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .field-status.saved {
+            background: rgba(1, 147, 135, 0.2);
+            color: #019387;
+        }
+
+        .field-status.unsaved {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .field-status.error {
+            background: rgba(255, 124, 135, 0.2);
+            color: #FF7C87;
+        }
+
+        .icon {
+            margin-right: 4px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(55, 153, 173, 0.2);
+            text-align: center;
+            font-size: 12px;
+            color: rgba(237, 238, 237, 0.5);
+        }
+
+        .footer a {
+            color: #3799ad;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+            color: #FF7C87;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Ω</h1>
+            <p>Omega_KG Configuration</p>
+        </div>
+
+        <div class="info-box">
+            <strong>ℹ️ How it works:</strong> Enter your bootstrap API key below. The extension will securely exchange
+            it for short-lived tokens to capture conversations.
+        </div>
+
+        <form id="configForm">
+            <div class="form-group">
+                <label for="apiKey">
+                    Bootstrap API Key
+                    <span class="label-helper">Your extension's static API key from Omega_KG server config</span>
+                </label>
+                <input type="password" id="apiKey" name="apiKey" placeholder="Enter your API key"
+                    required autocomplete="off">
+                <div class="field-status" id="apiKeyStatus"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="serverUrl">
+                    Server URL
+                    <span class="label-helper">Base URL of your Omega_KG capture server</span>
+                </label>
+                <input type="url" id="serverUrl" name="serverUrl" placeholder="http://localhost:8765"
+                    value="http://localhost:8765" required>
+                <div class="field-status" id="serverUrlStatus"></div>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-save" id="saveBtn">
+                    <span class="icon">💾</span>Save Configuration
+                </button>
+                <button type="button" class="btn-clear" id="clearBtn">
+                    <span class="icon">🗑️</span>Clear
+                </button>
+            </div>
+        </form>
+
+        <div class="footer">
+            <p>v2.2.0 • <a href="https://github.com/ApexSigma-Solutions/omega_kg" target="_blank">GitHub</a></p>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

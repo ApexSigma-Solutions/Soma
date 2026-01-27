@@ -1,0 +1,288 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Zero Trust Pattern Verification CI Pipeline
+# ═══════════════════════════════════════════════════════════════════════════════
+# Runs on every PR merge to beta/main to ensure:
+#   1. DEV environment configuration is isolated and correct
+#   2. STABLE environment configuration is isolated and correct
+#   3. No cross-contamination between environments
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Zero Trust Verification
+
+on:
+  push:
+    branches: [beta, main, master]
+  pull_request:
+    branches: [beta, main, master]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "2.2.0"
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # DEV Environment Verification
+  # ═══════════════════════════════════════════════════════════════════════════════
+  verify-dev:
+    name: Verify DEV Environment
+    runs-on: ubuntu-latest
+
+    env:
+      # DEV environment variables
+      OMEGA_ENV: dev
+      POSTGRES_DB: omega_kg_dev
+      POSTGRES_PORT: "5434"
+      POSTGRES_SERVER: "127.0.0.1"
+      POSTGRES_USER: omega_user
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_DEV || 'omega_dev_password' }}
+      APP_PORT: "8765"
+      APP_ENV: development
+      NEO4J_URI: bolt://localhost:7688
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_DEV || 'neo4j_dev_password' }}
+      BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN_DEV }}
+      # Secret IDs for Bitwarden (DEV project)
+      LINEAR_WEBHOOK_SECRET_ID: ${{ secrets.LINEAR_WEBHOOK_SECRET_DEV_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Verify DEV Zero Trust Configuration
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " VERIFYING DEV ENVIRONMENT CONFIGURATION"
+          echo "═══════════════════════════════════════════════════════════════"
+          poetry run python scripts/core/verify-phase2-readiness.py --environment dev
+
+      - name: Run DEV settings smoke test
+        run: |
+          poetry run python -c "
+          import os
+          os.environ.setdefault('OMEGA_ENV', 'dev')
+          from omega_kg.settings import settings
+          assert settings.postgres_db == 'omega_kg_dev', f'Expected omega_kg_dev, got {settings.postgres_db}'
+          assert settings.postgres_port == 5434, f'Expected 5434, got {settings.postgres_port}'
+          assert settings.app_port == 8765, f'Expected 8765, got {settings.app_port}'
+          print('✅ DEV settings smoke test PASSED')
+          "
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # STABLE Environment Verification
+  # ═══════════════════════════════════════════════════════════════════════════════
+  verify-stable:
+    name: Verify STABLE Environment
+    runs-on: ubuntu-latest
+
+    env:
+      # STABLE environment variables
+      OMEGA_ENV: stable
+      POSTGRES_DB: omega_kg_stable
+      POSTGRES_PORT: "5433"
+      POSTGRES_SERVER: "127.0.0.1"
+      POSTGRES_USER: omega_user
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_STABLE || 'omega_stable_password' }}
+      APP_PORT: "8002"
+      APP_ENV: stable
+      NEO4J_URI: bolt://localhost:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD_STABLE || 'neo4j_stable_password' }}
+      BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN_STABLE }}
+      # Secret IDs for Bitwarden (PRD project)
+      LINEAR_WEBHOOK_SECRET_PRD_ID: ${{ secrets.LINEAR_WEBHOOK_SECRET_PRD_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Verify STABLE Zero Trust Configuration
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " VERIFYING STABLE ENVIRONMENT CONFIGURATION"
+          echo "═══════════════════════════════════════════════════════════════"
+          poetry run python scripts/core/verify-phase2-readiness.py --environment stable
+
+      - name: Run STABLE settings smoke test
+        run: |
+          poetry run python -c "
+          import os
+          os.environ.setdefault('OMEGA_ENV', 'stable')
+          from omega_kg.settings import settings
+          assert settings.postgres_db == 'omega_kg_stable', f'Expected omega_kg_stable, got {settings.postgres_db}'
+          assert settings.postgres_port == 5433, f'Expected 5433, got {settings.postgres_port}'
+          assert settings.app_port == 8002, f'Expected 8002, got {settings.app_port}'
+          print('✅ STABLE settings smoke test PASSED')
+          "
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Cross-Contamination Check
+  # ═══════════════════════════════════════════════════════════════════════════════
+  verify-isolation:
+    name: Verify Environment Isolation
+    runs-on: ubuntu-latest
+    needs: [verify-dev, verify-stable]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Verify no cross-contamination
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " VERIFYING ENVIRONMENT ISOLATION (NO CROSS-CONTAMINATION)"
+          echo "═══════════════════════════════════════════════════════════════"
+
+          # Test DEV settings
+          export OMEGA_ENV=dev
+          export POSTGRES_DB=omega_kg_dev
+          export POSTGRES_PORT=5434
+          export APP_PORT=8765
+          export NEO4J_URI=bolt://localhost:7688
+
+          DEV_RESULT=$(poetry run python -c "
+          from omega_kg.settings import settings
+          print(f'{settings.postgres_db}|{settings.postgres_port}|{settings.app_port}')
+          " 2>/dev/null || echo "ERROR")
+
+          echo "DEV config: $DEV_RESULT"
+
+          if [[ "$DEV_RESULT" != "omega_kg_dev|5434|8765" ]]; then
+            echo "❌ DEV configuration incorrect: $DEV_RESULT"
+            exit 1
+          fi
+          echo "✅ DEV environment correctly isolated"
+
+          # Clear Python module cache
+          unset OMEGA_ENV POSTGRES_DB POSTGRES_PORT APP_PORT NEO4J_URI
+
+          # Test STABLE settings
+          export OMEGA_ENV=stable
+          export POSTGRES_DB=omega_kg_stable
+          export POSTGRES_PORT=5433
+          export APP_PORT=8002
+          export NEO4J_URI=bolt://localhost:7687
+
+          STABLE_RESULT=$(poetry run python -c "
+          import sys
+          # Force reimport
+          for key in list(sys.modules.keys()):
+              if 'omega_kg' in key:
+                  del sys.modules[key]
+          from omega_kg.settings import settings
+          print(f'{settings.postgres_db}|{settings.postgres_port}|{settings.app_port}')
+          " 2>/dev/null || echo "ERROR")
+
+          echo "STABLE config: $STABLE_RESULT"
+
+          if [[ "$STABLE_RESULT" != "omega_kg_stable|5433|8002" ]]; then
+            echo "❌ STABLE configuration incorrect: $STABLE_RESULT"
+            exit 1
+          fi
+          echo "✅ STABLE environment correctly isolated"
+
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " ✅ ALL ISOLATION CHECKS PASSED"
+          echo "═══════════════════════════════════════════════════════════════"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Summary Job
+  # ═══════════════════════════════════════════════════════════════════════════════
+  summary:
+    name: Zero Trust Verification Summary
+    runs-on: ubuntu-latest
+    needs: [verify-dev, verify-stable, verify-isolation]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " ZERO TRUST VERIFICATION SUMMARY"
+          echo "═══════════════════════════════════════════════════════════════"
+          echo ""
+          echo "DEV Verification:      ${{ needs.verify-dev.result }}"
+          echo "STABLE Verification:   ${{ needs.verify-stable.result }}"
+          echo "Isolation Check:       ${{ needs.verify-isolation.result }}"
+          echo ""
+
+          if [[ "${{ needs.verify-dev.result }}" == "success" ]] && \
+             [[ "${{ needs.verify-stable.result }}" == "success" ]] && \
+             [[ "${{ needs.verify-isolation.result }}" == "success" ]]; then
+            echo "═══════════════════════════════════════════════════════════════"
+            echo " ✅ ALL ZERO TRUST CHECKS PASSED"
+            echo " Both environments are properly configured and isolated"
+            echo "═══════════════════════════════════════════════════════════════"
+          else
+            echo "═══════════════════════════════════════════════════════════════"
+            echo " ❌ ZERO TRUST VERIFICATION FAILED"
+            echo " Review the failed jobs above for details"
+            echo "═══════════════════════════════════════════════════════════════"
+            exit 1
+          fi

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omega_KG Capture</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #161f27;
+      color: #edeeed;
+      padding: 0;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #019387 0%, #017a70 100%);
+      padding: 16px;
+      text-align: center;
+      border-bottom: 2px solid #FF7C87;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .header:hover {
+      box-shadow: 0 4px 12px rgba(255, 124, 135, 0.3);
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: rgba(237, 238, 237, 0.8);
+      margin-top: 4px;
+    }
+
+    .main-area {
+      padding: 16px;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      background: rgba(1, 147, 135, 0.1);
+      border-left: 3px solid #019387;
+      color: #edeeed;
+    }
+
+    .status.error {
+      background: rgba(255, 124, 135, 0.1);
+      border-left-color: #FF7C87;
+    }
+
+    .status.success {
+      background: rgba(1, 147, 135, 0.15);
+      border-left-color: #019387;
+    }
+
+    .capture-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #019387 0%, #017a70 100%);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+
+    .capture-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(1, 147, 135, 0.4);
+      border-color: #FF7C87;
+    }
+
+    .capture-btn:active {
+      transform: translateY(0);
+    }
+
+    .capture-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .footer {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(84, 83, 84, 0.3);
+      font-size: 12px;
+      color: rgba(237, 238, 237, 0.6);
+      text-align: center;
+    }
+
+    .config-link {
+      color: #3799ad;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .config-link:hover {
+      color: #FF7C87;
+      text-decoration: underline;
+    }
+
+    .debug-panel {
+      display: none;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid #FF7C87;
+      border-bottom: 1px solid #FF7C87;
+      font-size: 11px;
+      color: #3799ad;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      line-height: 1.5;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .debug-panel.show {
+      display: block;
+    }
+
+    .debug-item {
+      margin-bottom: 8px;
+    }
+
+    .debug-label {
+      color: #FF7C87;
+      font-weight: 600;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" id="logoHeader" title="Left-click to capture • Right-click for debug">
+      <h1>Ω</h1>
+      <div class="header-subtitle">Omega_KG</div>
+    </div>
+
+    <div class="main-area">
+      <div id="status" class="status">Ready to capture conversations.</div>
+      <button id="captureBtn" class="capture-btn">📸 Capture Conversation</button>
+    </div>
+
+    <div id="debugPanel" class="debug-panel">
+      <div class="debug-item"><span class="debug-label">API Key:</span> <span id="debugApiKey">Not configured</span></div>
+      <div class="debug-item"><span class="debug-label">Server:</span> <span id="debugServer">http://localhost:8765</span></div>
+      <div class="debug-item"><span class="debug-label">Last Capture:</span> <span id="debugLastCapture">Never</span></div>
+      <div class="debug-item"><span class="debug-label">Server Status:</span> <span id="debugServerStatus">Unknown</span></div>
+    </div>
+
+    <div class="footer">
+      <a class="config-link" id="configLink">⚙️ Configure API Key</a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

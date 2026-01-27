@@ -1,0 +1,315 @@
+name: soma_ecosystem
+
+services:
+  # ===========================================================================
+  # TAILSCALE (Nervous System) - Private Remote Access Gateway
+  # ===========================================================================
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: apexsigma.tailscale
+    hostname: soma-gateway
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_ROUTES=172.20.0.0/16
+      - TS_EXTRA_ARGS=--accept-routes --advertise-exit-node=false
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      default:
+        ipv4_address: 172.20.0.254
+
+  # ===========================================================================
+  # THE BRAIN (OmegaKG) - Source of Truth & Governance
+  # ===========================================================================
+  # NOTE: OmegaKG now runs NATIVELY on host for Windows I/O performance
+  # Start via: poetry run python -m omega_kg.main
+  # Port 8765 will be exposed on 0.0.0.0 for Tailscale access
+  # 
+  # omegakg:
+  #   container_name: OmegaKG
+  #   build:
+  #     context: ./OmegaKG
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8765:8765"
+  #   networks:
+  #     - default
+  #   environment:
+  #     - NEO4J_URI=bolt://apexsigma.neo4j.stable:7687
+  #     - NEO4J_USER=neo4j
+  #     - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+  #     - POSTGRES_HOST=apexsigma.postgres.stable
+  #     - POSTGRES_PORT=5432
+  #     - POSTGRES_USER=omega_user
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+  #     - POSTGRES_DB=omega_kg_stable
+  #     - REDIS_URL=redis://apexsigma.redis:6379/0
+  #     - SOMA_INTERNAL_KEY=${SOMA_INTERNAL_KEY:-soma_dev_key}
+  #     - LINEAR_WEBHOOK_SECRET=${LINEAR_WEBHOOK_SECRET:-}
+  #     - ZERO_TRUST_REQUIRED=false
+  #     - BWS_ACCESS_TOKEN=
+  #     - OBSIDIAN_VAULT_PATH=/vault
+  #     - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+  #   depends_on:
+  #     neo4j:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./OmegaKG/omega_kg:/app/omega_kg
+  #     - ./data/logs/brain:/app/logs
+  #     - ./OmegaVault:/vault:ro
+  #   restart: unless-stopped
+
+  # ===========================================================================
+  # THE STOMACH (InGest) - Dagster Pipeline
+  # ===========================================================================
+  # NOTE: InGest (Dagster) now runs NATIVELY on host for Windows I/O performance
+  # Start via: poetry run dagster dev -h 0.0.0.0 -p 3000
+  # Dagster UI will be accessible at http://localhost:3000 and via Tailscale
+  # 
+  # ingest-daemon:
+  #   container_name: InGest
+  #   build:
+  #     context: ./InGest
+  #     dockerfile: Dockerfile
+  #   entrypoint: ["dagster-daemon", "run"]
+  #   user: root
+  #   networks:
+  #     - default
+  #   models:
+  #     embedding-model:
+  #       endpoint_var: EMBED_BASE_URL
+  #       model_var: EMBED_MODEL
+  #   environment:
+  #     - DAGSTER_HOME=/opt/dagster/dagster_home
+  #     - DAGSTER_POSTGRES_USER=omega_user
+  #     - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+  #     - DAGSTER_POSTGRES_DB=omega_kg_stable
+  #     - DAGSTER_POSTGRES_HOST=apexsigma.postgres.stable
+  #     - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.stable:5432/omega_kg_stable
+  #     # NOTE: EMBED_BASE_URL and EMBED_MODEL are injected by the 'models' block
+  #     - EMBED_API_KEY=ignore-me
+  #     - NANO_GPT_API_KEY=${NANO_GPT_API_KEY:-}
+  #     - LINEAR_WEBHOOK_SECRET=${LINEAR_WEBHOOK_SECRET:-}
+  #     - SOMA_INTERNAL_KEY=${SOMA_INTERNAL_KEY:-soma_dev_key}
+  #     - OMEGAKG_API_URL=http://omegakg:8765
+  #     - LANCEDB_URI=/opt/soma/memory/lancedb
+  #     - LANCEDB_TABLE=soma_memories
+  #   volumes:
+  #     - ./InGest:/opt/dagster/app
+  #     - ./InGest/dagster_home:/opt/dagster/dagster_home
+  #     - lancedb_data:/opt/soma/memory/lancedb
+  #     - ./data/logs/stomach:/opt/dagster/logs
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   restart: always
+  # 
+  # ingest-web:
+  #   container_name: InGest-ui
+  #   build:
+  #     context: ./InGest
+  #     dockerfile: Dockerfile
+  #   entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
+  #   user: root
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - default
+  #   environment:
+  #     - DAGSTER_HOME=/opt/dagster/dagster_home
+  #     - DAGSTER_POSTGRES_USER=omega_user
+  #     - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+  #     - DAGSTER_POSTGRES_DB=omega_kg_stable
+  #     - DAGSTER_POSTGRES_HOST=apexsigma.postgres.stable
+  #     - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.stable:5432/omega_kg_stable
+  #     - LANCEDB_URI=/opt/soma/memory/lancedb
+  #   volumes:
+  #     - ./InGest:/opt/dagster/app
+  #     - ./InGest/dagster_home:/opt/dagster/dagster_home
+  #     - lancedb_data:/opt/soma/memory/lancedb:ro
+  #   depends_on:
+  #     ingest-daemon:
+  #       condition: service_started
+  #     postgres:
+  #       condition: service_healthy
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   restart: unless-stopped
+
+  # ===========================================================================
+  # THE HANDS (memOS) - Context Bridge & Retrieval
+  # ===========================================================================
+  memos:
+    container_name: memOS
+    build:
+      context: ./memOS
+      dockerfile: Dockerfile
+    ports:
+      - "8768:8768"
+    networks:
+      - default
+    models:
+      embedding-model:
+        endpoint_var: EMBED_BASE_URL
+        model_var: EMBED_MODEL
+    environment:
+      - REDIS_URL=redis://apexsigma.redis:6379/0
+      - MEMOS_REDIS_HOST=apexsigma.redis
+      - MEMOS_REDIS_PORT=6379
+      - POSTGRES_HOST=apexsigma.postgres.stable
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=omega_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+      - POSTGRES_DB=omega_kg_stable
+      - NEO4J_URI=bolt://apexsigma.neo4j.stable:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - LANCEDB_URI=/opt/soma/memory/lancedb
+      # NOTE: EMBED_BASE_URL and EMBED_MODEL are injected by the 'models' block
+    volumes:
+      - ./memOS/src:/app/src
+      - lancedb_data:/opt/soma/memory/lancedb:ro
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ===========================================================================
+  # INFRASTRUCTURE (Valhalla) - The Three Pillars
+  # ===========================================================================
+  neo4j:
+    image: neo4j:5-community
+    container_name: apexsigma.neo4j.stable
+    ports:
+      - "0.0.0.0:7474:7474"  # Browser UI - exposed for Tailscale
+      - "0.0.0.0:7687:7687"  # Bolt protocol - exposed for Tailscale
+    networks:
+      - default
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_plugins:/plugins
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: apexsigma.postgres.stable
+    ports:
+      - "0.0.0.0:6000:5432"  # Exposed on all interfaces for Tailscale access
+    networks:
+      - default
+    environment:
+      - POSTGRES_USER=omega_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+      - POSTGRES_DB=omega_kg_stable
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omega_user -d omega_kg_stable"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: always  # Auto-restart on failure for stability
+
+  redis:
+    image: redis:7-alpine
+    container_name: apexsigma.redis
+    ports:
+      - "6380:6379"
+    networks:
+      - default
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+# ===========================================================================
+# AI MODELS (Docker Model Runner Native Support)
+# ===========================================================================
+models:
+  embedding-model:
+    model: ai/qwen3-embedding:0.6B-F16
+
+# ===========================================================================
+# VOLUMES - Named Volumes for Data Persistence
+# ===========================================================================
+volumes:
+  # --- Neo4j (existing from OmegaKG project) ---
+  neo4j_data:
+    name: apexsigma.neo4j.data
+    external: true
+  neo4j_logs:
+    name: apexsigma.neo4j.logs
+    external: true
+  neo4j_plugins:
+    name: apexsigma.neo4j.plugins
+    external: true
+
+  # --- PostgreSQL (existing from OmegaKG project) ---
+  postgres_data:
+    name: apexsigma.postgres.data
+    external: true
+
+  # --- Redis (existing from OmegaKG project) ---
+  redis_data:
+    name: apexsigma.redis.data
+    external: true
+
+  # --- LanceDB (Shared Memory Store) ---
+  lancedb_data:
+    name: apexsigma.lancedb
+
+  # --- Tailscale (State Persistence) ---
+  tailscale_state:
+    name: apexsigma.tailscale.state
+
+# ===========================================================================
+# NETWORKS - All services on the ApexSigma internal network
+# ===========================================================================
+networks:
+  default:
+    name: apexsigma.net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

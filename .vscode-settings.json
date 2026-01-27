@@ -1,0 +1,103 @@
+{
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "workbench.colorTheme": "Hack The Box",
+  "chat.mcp.gallery.enabled": true,
+  "security.workspace.trust.untrustedFiles": "open",
+  "snyk.advanced.cliPath": "C:\\Users\\steyn\\AppData\\Local\\snyk\\vscode-cli\\snyk-win.exe",
+  "snyk.folderConfigs": [
+    {
+      "folderPath": "d:\\projects\\Omega_KG_dev",
+      "baseBranch": "",
+      "localBranches": [
+        "alpha",
+        "beta",
+        "delta/necromancy-revival-20251031",
+        "feature/code-review-improvements",
+        "feature/linear-sync-engine",
+        "feature/neo4j-obsidian-sync",
+        "feature/restore-html-parsing",
+        "gh-pages"
+      ]
+    },
+    {
+      "folderPath": "d:\\projects\\omegavault.as",
+      "baseBranch": "main",
+      "localBranches": [
+        "main"
+      ]
+    }
+  ],
+  "snyk.securityAtInception.autoConfigureSnykMcpServer": true,
+  "snyk.securityAtInception.executionFrequency": "On Code Generation",
+  "files.exclude": {
+    "**/.trunk/*actions/": true,
+    "**/.trunk/*logs/": true,
+    "**/.trunk/*notifications/": true,
+    "**/.trunk/*out/": true,
+    "**/.trunk/*plugins/": true
+  },
+  "files.watcherExclude": {
+    "**/.trunk/*actions/": true,
+    "**/.trunk/*logs/": true,
+    "**/.trunk/*notifications/": true,
+    "**/.trunk/*out/": true,
+    "**/.trunk/*plugins/": true
+  },
+  "editor.defaultFormatter": "trunk.io",
+  "snyk.trustedFolders": [
+    "d:\\projects\\Omega_KG_dev",
+    "d:\\projects\\omegavault.as"
+  ],
+  "gitlens.ai.model": "vscode",
+  "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+  "snyk.yesWelcomeNotification": false,
+  "roo-cline.allowedCommands": [
+    "git log",
+    "git diff",
+    "git show"
+  ],
+  "roo-cline.deniedCommands": [],
+  "git.autofetch": true,
+  "editor.minimap.renderCharacters": false,
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": true,
+    "scminput": false,
+    "python": true,
+    "yaml": true,
+    "sql": true
+  },
+  "gitlens.graph.layout": "editor",
+  "python.analysis.typeCheckingMode": "strict",
+  "pgsql.serverGroups": [
+    {
+      "name": "Servers",
+      "id": "43FBF65B-2ED7-4A25-BB78-6C4AD846EFFC",
+      "isDefault": true
+    }
+  ],
+  "pgsql.connections": [
+    {
+      "id": "E6823E3A-A091-4918-B2D3-091BC6E3C189",
+      "groupId": "43FBF65B-2ED7-4A25-BB78-6C4AD846EFFC",
+      "authenticationType": "SqlLogin",
+      "connectTimeout": 15,
+      "applicationName": "vscode-pgsql",
+      "clientEncoding": "utf8",
+      "sslmode": "prefer",
+      "savePassword": true,
+      "server": "localhost",
+      "user": "omega_user",
+      "password": "",
+      "database": "omega_kg_stable",
+      "profileName": "apexsigma.postgres.stable",
+      "port": "5800",
+      "sshPassword": "",
+      "expiresOn": 0
+    }
+  ],
+  "projectManager.sortList": "Recent",
+  "claude-code.pathToClaudeCodeExecutable": "C:\\Users\\steyn\\AppData\\Roaming\\npm\\claude.cmd",
+  "claude-code.useExec": false
+}

@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* -- ApexSigma Light Mode Palette (Maximum Contrast) -- */
+    --background: #f8fafc;
+    --foreground: #020617;
+    
+    --card: #ffffff;
+    --card-foreground: #020617;
+    
+    --popover: #ffffff;
+    --popover-foreground: #020617;
+    
+    --primary: #00BFA6; /* Apex Teal */
+    --primary-foreground: #ffffff;
+    
+    --secondary: #e2e8f0;
+    --secondary-foreground: #0f172a;
+    
+    --muted: #f1f5f9;
+    --muted-foreground: #0f172a; /* Ultra-dark for max legibility */
+    
+    --accent: #00BFA6;
+    --accent-foreground: #ffffff;
+    
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: #e2e8f0;
+    --input: #ffffff;
+    --ring: #00BFA6;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* -- ApexSigma Industrial Tech (Deep Dark Mode) -- */
+    --background: #020617; /* Deepest Navy/Slate */
+    --foreground: #f8fafc;
+    
+    /* Solidify surfaces to avoid "grey" transparency issues */
+    --card: #0f172a; /* Slate 900 - Solid Navy base */
+    --card-foreground: #f8fafc;
+    
+    --popover: #020617;
+    --popover-foreground: #f8fafc;
+    
+    --primary: #00BFA6; /* Apex Teal */
+    --primary-foreground: #ffffff;
+    
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    
+    --muted: #1e293b;
+    --muted-foreground: #cbd5e1; /* Bumped up from #94a3b8 for better contrast on #0f172a */
+    
+    --accent: rgba(0, 191, 166, 0.2);
+    --accent-foreground: #00BFA6;
+    
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: rgba(0, 191, 166, 0.3); /* Slightly more visible border */
+    --input: #0f172a;
+    --ring: #00BFA6;
+
+    --radius: 0.5rem;
+  }
+
+  body {
+    @apply bg-background text-foreground tracking-wide;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 10px rgba(0, 191, 166, 0.4);
+  }
+  .border-glow {
+    box-shadow: 0 0 10px rgba(0, 191, 166, 0.15);
+  }
+  .glass-panel {
+    @apply backdrop-blur-[16px] backdrop-saturate-[180%] border-border;
+  }
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(0, 191, 166, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(0, 191, 166, 0.03) 1px, transparent 1px);
+  }
+}
+
+

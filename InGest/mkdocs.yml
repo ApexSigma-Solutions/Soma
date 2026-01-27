@@ -1,0 +1,43 @@
+# mkdocs.yml
+site_name: InGest-LLM.as Documentation
+site_url: https://docs.ingest-llm.as/
+repo_url: https://github.com/ApexSigma-Solutions/InGest-LLM.as
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - search.suggest
+    - content.code.copy
+
+# Add the mkdocstrings plugin
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+
+nav:
+  - 'Introduction': 'index.md'
+  - 'Tutorials': 'tutorials/index.md'
+  - 'How-To Guides': 'how-to/index.md'
+  - 'Deployment':
+    - 'deployment/index.md'
+    - 'Infrastructure Setup': 'deployment/infrastructure.md'
+  - 'API Reference':
+    - 'reference/index.md'
+    - 'Ingestion API': 'reference/ingestion.md'
+    - 'Analysis API': 'reference/analysis.md'
+    - 'Services': 'reference/services.md'
+    - 'Observability': 'reference/observability.md'

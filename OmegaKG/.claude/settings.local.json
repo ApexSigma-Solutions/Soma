@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry run pytest:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(python:*)",
+      "Skill(hookdeck_localhost)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,1675 @@
+============================= test session starts =============================
+collecting ... 
+----------------------------- live log collection -----------------------------
+INFO     omega_kg.settings:settings.py:73 BWS_ACCESS_TOKEN found, attempting Bitwarden authentication
+INFO     omega_kg.settings:settings.py:83 Bitwarden authentication successful: ResponseForAccessTokenLoginResponse(success=True, data=AccessTokenLoginResponse(authenticated=True, force_password_reset=False, reset_master_password=False, two_factor=None), error_message=None)
+WARNING  omega_kg.settings:settings.py:126 Secret not found in Bitwarden for key 'gemini_api_key' (UUID: dedaca13-3dfa-483f-a5aa-b3c701503c91) - will use fallback
+INFO     omega_kg.settings:settings.py:148 Bitwarden secrets loaded for keys: extension_api_key, jwt_secret_key, linear_api_key, linear_webhook_secret, nanogpt_api_key, neo4j_password, perplexity_api_key, postgres_password
+INFO     omega_kg.vault_utils:vault_utils.py:65 VaultUtils initialized. Vault path: test_vault
+INFO     omega_kg.linear_sync:linear_sync.py:94 LinearSync initialized with vault: test_vault
+collected 18 items
+
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_missing_token_returns_401 
+------------------------------- live log setup --------------------------------
+INFO     conftest:conftest.py:175 \U0001f433 Starting Neo4j: neo4j:5-community\nINFO     testcontainers.core.container:container.py:177 Pulling image testcontainers/ryuk:0.8.1
+INFO     testcontainers.core.container:container.py:206 Container started: c41e700e5adb
+INFO     testcontainers.core.container:container.py:177 Pulling image neo4j:5-community
+INFO     testcontainers.core.container:container.py:206 Container started: 62844a3980bd
+INFO     conftest:conftest.py:234 Connecting to Neo4j at bolt://localhost:8506 with user 'neo4j'
+INFO     conftest:conftest.py:242 \u23f3 Waiting for Neo4j Connectivity (Max 60s)...\nINFO     conftest:conftest.py:250 \u2705 Neo4j Connection Verified!\nINFO     conftest:conftest.py:162 \U0001f433 Starting Postgres: pgvector/pgvector:pg16\nINFO     testcontainers.core.container:container.py:177 Pulling image pgvector/pgvector:pg16
+INFO     testcontainers.core.container:container.py:206 Container started: 15e250c5f692
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 403 Forbidden"
+PASSED                                                                   [  5%]
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_invalid_token_returns_401 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 11%]
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_valid_token_accepted 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 16%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_content_rejected 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 22%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_short_content_rejected 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 27%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_invalid_embedding_dimension_rejected 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 33%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_title_rejected 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 38%]
+tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_duplicate_source_id_detected 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 44%]
+tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_different_source_ids_accepted 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 50%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_successful_storage_returns_node_ids 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 55%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_rollback_on_vector_failure SKIPPED [ 61%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_rollback_on_neo4j_failure SKIPPED [ 66%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_conversation_digest_accepted 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 72%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_terminal_event_digest_accepted 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 77%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_linear_issue_digest_accepted 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 83%]
+tests/integration/test_validation_api.py::TestValidationAPIHealthCheck::test_health_endpoint_accessible 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/validate/health "HTTP/1.1 200 OK"
+PASSED                                                                   [ 88%]
+tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_full_validation_workflow 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [ 94%]
+tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_validation_api_handles_concurrent_requests 
+-------------------------------- live log call --------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED                                                                   [100%]
+
+================================== FAILURES ===================================
+__________ TestValidationAPIAuthentication.test_valid_token_accepted __________
+tests\integration\test_validation_api.py:84: in test_valid_token_accepted
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+_________ TestValidationAPIQualityChecks.test_empty_content_rejected __________
+tests\integration\test_validation_api.py:104: in test_empty_content_rejected
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+_________ TestValidationAPIQualityChecks.test_short_content_rejected __________
+tests\integration\test_validation_api.py:126: in test_short_content_rejected
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+__ TestValidationAPIQualityChecks.test_invalid_embedding_dimension_rejected ___
+tests\integration\test_validation_api.py:146: in test_invalid_embedding_dimension_rejected
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+__________ TestValidationAPIQualityChecks.test_empty_title_rejected ___________
+tests\integration\test_validation_api.py:162: in test_empty_title_rejected
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+______ TestValidationAPIDeduplication.test_duplicate_source_id_detected _______
+tests\integration\test_validation_api.py:181: in test_duplicate_source_id_detected
+    response1 = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+______ TestValidationAPIDeduplication.test_different_source_ids_accepted ______
+tests\integration\test_validation_api.py:214: in test_different_source_ids_accepted
+    response1 = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+_ TestValidationAPIAtomicTransactions.test_successful_storage_returns_node_ids _
+tests\integration\test_validation_api.py:245: in test_successful_storage_returns_node_ids
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+_______ TestValidationAPIDigestTypes.test_conversation_digest_accepted ________
+tests\integration\test_validation_api.py:284: in test_conversation_digest_accepted
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+______ TestValidationAPIDigestTypes.test_terminal_event_digest_accepted _______
+tests\integration\test_validation_api.py:303: in test_terminal_event_digest_accepted
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+_______ TestValidationAPIDigestTypes.test_linear_issue_digest_accepted ________
+tests\integration\test_validation_api.py:321: in test_linear_issue_digest_accepted
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+___________ TestValidationAPIEndToEnd.test_full_validation_workflow ___________
+tests\integration\test_validation_api.py:357: in test_full_validation_workflow
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+__ TestValidationAPIEndToEnd.test_validation_api_handles_concurrent_requests __
+tests\integration\test_validation_api.py:393: in test_validation_api_handles_concurrent_requests
+    response = client.post(
+.venv\Lib\site-packages\starlette\testclient.py:552: in post
+    return super().post(
+.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+.venv\Lib\site-packages\starlette\testclient.py:451: in request
+    return super().request(
+.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv\Lib\site-packages\anyio\from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\fastapi\routing.py:380: in app
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:621: in solve_dependencies
+    solved_result = await solve_dependencies(
+.venv\Lib\site-packages\fastapi\dependencies\utils.py:643: in solve_dependencies
+    solved = await call(**solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+omega_kg\database\adapters.py:22: in get_neo4j_driver
+    await graph_driver.connect()
+omega_kg\database\graph.py:41: in connect
+    await self._driver.verify_connectivity()
+.venv\Lib\site-packages\neo4j\_async\driver.py:1061: in verify_connectivity
+    await self._get_server_info(session_config)
+.venv\Lib\site-packages\neo4j\_async\driver.py:1290: in _get_server_info
+    return await session._get_server_info()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\work\session.py:173: in _get_server_info
+    await self._connect(
+.venv\Lib\site-packages\neo4j\_async\work\session.py:126: in _connect
+    await super()._connect(
+.venv\Lib\site-packages\neo4j\_async\work\workspace.py:184: in _connect
+    self._connection = await self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:681: in acquire
+    return await self._acquire(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:421: in _acquire
+    return await connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:234: in connection_creator
+    connection = await self.opener(
+.venv\Lib\site-packages\neo4j\_async\io\_pool.py:641: in opener
+    return await AsyncBolt.open(
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:425: in open
+    await connection.hello()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:735: in hello
+    await self.fetch_all()
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:882: in fetch_all
+    detail_delta, summary_delta = await self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt.py:867: in fetch_message
+    res = await self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\neo4j\_async\io\_bolt5.py:1202: in _process_message
+    await response.on_failure(summary_metadata or {})
+.venv\Lib\site-packages\neo4j\_async\io\_common.py:304: in on_failure
+    raise self._hydrate_error(metadata)
+E   neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+---------------------------- Captured stderr call -----------------------------
+ERROR:omega_kg.database.graph:Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+------------------------------ Captured log call ------------------------------
+ERROR    omega_kg.database.graph:graph.py:44 Failed to connect to Neo4j: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+=========================== short test summary info ===========================
+FAILED tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_valid_token_accepted - neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_content_rejected - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_short_content_rejected - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_invalid_embedding_dimension_rejected - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_title_rejected - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_duplicate_source_id_detected - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_different_source_ids_accepted - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_successful_storage_returns_node_ids - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_conversation_digest_accepted - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_terminal_event_digest_accepted - neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: The client is unauthorized due to authentication failure.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_linear_issue_digest_accepted - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_full_validation_workflow - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+FAILED tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_validation_api_handles_concurrent_requests - neo4j.exceptions.ClientError: {neo4j_code: Neo.ClientError.Security.AuthenticationRateLimit} {message: The client has provided incorrect authentication details too many times in a row.} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+================== 13 failed, 3 passed, 2 skipped in 36.32s ===================

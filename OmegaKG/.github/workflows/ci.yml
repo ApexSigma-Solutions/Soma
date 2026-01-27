@@ -1,0 +1,343 @@
+name: Omega_KG CI Pipeline
+
+on:
+  push:
+    branches: [ "beta", "main" ]
+    tags: [ "v*.*.*-core" ]  # Trigger on core release tags
+  pull_request:
+    branches: [ "beta", "main" ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "2.2.0"
+
+jobs:
+  # -----------------------------------------------------------------------------
+  # TIER 1: FAST FEEDBACK (Linting, Formatting, Static Analysis)
+  # -----------------------------------------------------------------------------
+  quality-checks:
+    name: 🛡️ Quality & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+        
+      - name: Install dependencies
+        run: poetry install --with dev
+        
+      - name: Run Pre-commit Hooks (Ruff, Mypy, Bandit)
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files
+
+  # -----------------------------------------------------------------------------
+  # TIER 2: UNIT TESTING (Fast Logic Verification)
+  # -----------------------------------------------------------------------------
+  unit-tests:
+    name: 🧪 Unit Tests
+    needs: quality-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+        
+      - name: Install dependencies
+        run: poetry install --with dev
+        
+      - name: Setup Test Environment
+        run: |
+          mkdir -p ${{ github.workspace }}/tests/fixtures/vault
+          cat > ${{ github.workspace }}/tests/fixtures/vault/my_test_note.md << 'EOF'
+          ---
+          status: draft
+          ---
+          # Unit Test Note
+          EOF
+
+      - name: Run Unit Tests
+        env:
+          OBSIDIAN_VAULT_PATH: ${{ github.workspace }}/tests/fixtures/vault
+        run: |
+          poetry run pytest -m "unit" --cov=omega_kg --cov-report=xml:coverage-unit.xml --junitxml=junit-unit.xml
+
+      - name: Ensure unit coverage file exists
+        if: always()
+        run: |
+          if [ ! -f coverage-unit.xml ]; then
+            echo '<?xml version="1.0"?><coverage/>' > coverage-unit.xml
+          fi
+          
+      - name: Upload Unit Test Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit.xml
+          retention-days: 1
+
+  # -----------------------------------------------------------------------------
+  # TIER 3: SECURITY & DEEP ANALYSIS (Slower, Comprehensive)
+  # -----------------------------------------------------------------------------
+  security-scans:
+    name: 🔒 Security Scans
+    needs: quality-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for TruffleHog to scan history
+
+      # 1. Secret Scanning (TruffleHog)
+      - name: Run TruffleHog (Secrets)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      # 2. Vulnerability Scanning (Trivy)
+      - name: Run Trivy (Filesystem & Dependencies)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          scanners: 'vuln,secret,config'
+
+      # 3. SAST (Semgrep)
+      - name: Run Semgrep (SAST)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+          
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # -----------------------------------------------------------------------------
+  # TIER 4: INTEGRATION & BUILD (Slowest, Full System Verification)
+  # -----------------------------------------------------------------------------
+  integration-tests:
+    name: 🔗 Integration Tests
+    needs: [unit-tests, security-scans]
+    runs-on: ubuntu-latest
+    services:
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/password
+        ports:
+          - 7687:7687
+          - 7474:7474
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+        
+      - name: Install dependencies
+        run: poetry install --with dev
+        
+      - name: Setup Test Environment
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: password
+          OBSIDIAN_VAULT_PATH: ${{ github.workspace }}/tests/fixtures/vault
+          EXTENSION_API_KEY: test-key
+          LINEAR_WEBHOOK_SECRET: test-secret
+          CHROME_EXTENSION_ID: test-id
+          JWT_SECRET_KEY: test-jwt-secret
+        run: |
+          # Create vault directory structure
+          mkdir -p ${{ github.workspace }}/tests/fixtures/vault
+          
+          # Create test note for vault_utils tests
+          cat > ${{ github.workspace }}/tests/fixtures/vault/my_test_note.md << 'EOF'
+          ---
+          status: draft
+          ---
+          # Test Note
+          This is a test note for VaultUtils.
+          EOF
+          
+      - name: Run Integration Tests
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: password
+          OBSIDIAN_VAULT_PATH: ${{ github.workspace }}/tests/fixtures/vault
+          EXTENSION_API_KEY: test-key
+          LINEAR_WEBHOOK_SECRET: test-secret
+          CHROME_EXTENSION_ID: test-id
+          JWT_SECRET_KEY: test-jwt-secret
+        run: |
+          # Run all tests including integration
+          poetry run pytest -m "integration" --cov=omega_kg --cov-append --cov-report=xml:coverage-integration.xml --junitxml=junit-integration.xml
+          
+      - name: Ensure integration coverage file exists
+        if: always()
+        run: |
+          if [ ! -f coverage-integration.xml ]; then
+            echo '<?xml version="1.0"?><coverage/>' > coverage-integration.xml
+          fi
+          
+      - name: Upload Integration Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage-integration.xml
+          retention-days: 1
+
+  dast-scan:
+    name: 🕷️ DAST Scan (OWASP ZAP)
+    needs: [unit-tests, security-scans]
+    runs-on: ubuntu-latest
+    services:
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/password
+        ports:
+          - 7687:7687
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+        
+      - name: Install dependencies
+        run: poetry install --with dev
+        
+      - name: Setup Test Vault and Start Application
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: password
+          OBSIDIAN_VAULT_PATH: ./dummy_vault
+          EXTENSION_API_KEY: dast-key
+          LINEAR_WEBHOOK_SECRET: dast-secret
+          CHROME_EXTENSION_ID: dast-id
+          JWT_SECRET_KEY: dast-jwt-secret
+          APP_HOST: 0.0.0.0
+          APP_PORT: 8000
+        run: |
+          # Create vault directory
+          mkdir -p ./dummy_vault
+          
+          # Create a dummy note to ensure vault is valid
+          cat > ./dummy_vault/test.md << 'EOF'
+          ---
+          title: Test Note
+          ---
+          # Test
+          This is a test note for DAST scanning.
+          EOF
+          
+          # Start app in background
+          poetry run uvicorn omega_kg.capture_server:app --host 0.0.0.0 --port 8000 &
+          
+          # Wait for app to be ready
+          echo "Waiting for application to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 1
+          done
+          
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8000'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a' # Ajax spider
+          allow_issue_writing: false # Don't create issues in repo
+
+  docs-build:
+    name: 📚 Build Documentation
+    needs: quality-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+        
+      - name: Install dependencies
+        run: poetry install --with docs
+        
+      - name: Build MkDocs
+        run: poetry run mkdocs build --strict
+
+  # -----------------------------------------------------------------------------
+  # FINAL REPORTING
+  # -----------------------------------------------------------------------------
+  report-coverage:
+    name: 📊 Report Coverage
+    needs: [unit-tests, integration-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Unit Coverage
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: .
+        continue-on-error: true
+          
+      - name: Download Integration Coverage
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+          path: .
+        continue-on-error: true
+          
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage-unit.xml,./coverage-integration.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

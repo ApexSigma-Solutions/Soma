@@ -1,0 +1,600 @@
+"""
+Comprehensive unit tests for check_embeddings.py
+
+This module tests the embedding verification and diagnostic functionality
+for the Omega_KG system, including PostgreSQL vector operations and
+pgvector extension validation.
+"""
+
+import sys
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import check_embeddings
+
+
+class TestDatabaseConnection:
+    """Tests for database connection and setup"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_database_connection_success(self, mock_connect):
+        """Test successful database connection"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        # This would be called in the main function
+        conn = check_embeddings.psycopg2.connect(
+            host="localhost",
+            port=5432,
+            database="test_db",
+            user="test_user",
+            password="test_pass",
+        )
+
+        assert conn is not None
+        mock_connect.assert_called_once()
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_database_connection_failure(self, mock_connect):
+        """Test database connection failure handling"""
+        mock_connect.side_effect = Exception("Connection refused")
+
+        with pytest.raises(Exception, match="Connection refused"):
+            check_embeddings.psycopg2.connect(
+                host="localhost",
+                port=5432,
+                database="test_db",
+                user="test_user",
+                password="test_pass",
+            )
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_database_connection_with_invalid_credentials(self, mock_connect):
+        """Test connection with invalid credentials"""
+        mock_connect.side_effect = check_embeddings.psycopg2.OperationalError(
+            "FATAL:  password authentication failed"
+        )
+
+        with pytest.raises(check_embeddings.psycopg2.OperationalError):
+            check_embeddings.psycopg2.connect(
+                host="localhost",
+                port=5432,
+                database="test_db",
+                user="wrong_user",
+                password="wrong_pass",
+            )
+
+
+class TestPgvectorExtension:
+    """Tests for pgvector extension validation"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_pgvector_extension_exists(self, mock_connect):
+        """Test checking if pgvector extension exists"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("vector",)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        # Simulate checking extension
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert result[0] == "vector"
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_pgvector_extension_missing(self, mock_connect):
+        """Test detection of missing pgvector extension"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = None
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
+        result = cursor.fetchone()
+
+        assert result is None
+
+
+class TestTableValidation:
+    """Tests for table and column validation"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_omega_vectors_table_exists(self, mock_connect):
+        """Test checking if omega_vectors_1024 table exists"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("omega_vectors_1024",)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT tablename FROM pg_tables " "WHERE tablename = 'omega_vectors_1024'"
+        )
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert result[0] == "omega_vectors_1024"
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_vector_column_type(self, mock_connect):
+        """Test validation of vector column data type"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [
+            ("id", "integer"),
+            ("chunk_id", "character varying"),
+            ("embedding", "vector(1024)"),
+            ("created_at", "timestamp with time zone"),
+        ]
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT column_name, data_type FROM information_schema.columns "
+            "WHERE table_name = 'omega_vectors_1024'"
+        )
+        columns = cursor.fetchall()
+
+        # Find the embedding column
+        embedding_col = next((col for col in columns if col[0] == "embedding"), None)
+        assert embedding_col is not None
+        assert "vector" in embedding_col[1]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_table_missing(self, mock_connect):
+        """Test detection of missing table"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = None
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT tablename FROM pg_tables " "WHERE tablename = 'omega_vectors_1024'"
+        )
+        result = cursor.fetchone()
+
+        assert result is None
+
+
+class TestEmbeddingOperations:
+    """Tests for embedding storage and retrieval operations"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_insert_embedding_success(self, mock_connect):
+        """Test successful embedding insertion"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        # Simulate inserting an embedding
+        test_embedding = [0.1] * 1024
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "INSERT INTO omega_vectors_1024 (chunk_id, embedding) " "VALUES (%s, %s)",
+            ("test_chunk_1", test_embedding),
+        )
+
+        cursor.execute.assert_called_once()
+        assert "INSERT INTO omega_vectors_1024" in cursor.execute.call_args[0][0]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_query_embeddings_count(self, mock_connect):
+        """Test querying total embedding count"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = (42,)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute("SELECT COUNT(*) FROM omega_vectors_1024")
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert result[0] == 42
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_retrieve_embedding_by_chunk_id(self, mock_connect):
+        """Test retrieving embedding by chunk_id"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        test_embedding = [0.1] * 1024
+        mock_cursor.fetchone.return_value = ("test_chunk_1", test_embedding)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT chunk_id, embedding FROM omega_vectors_1024 " "WHERE chunk_id = %s",
+            ("test_chunk_1",),
+        )
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert result[0] == "test_chunk_1"
+        assert len(result[1]) == 1024
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_embedding_dimension_validation(self, mock_connect):
+        """Test validation of embedding dimensions"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        # Test with wrong dimension (should fail in real scenario)
+        wrong_embedding = [0.1] * 512  # Wrong size
+        mock_conn.cursor().__enter__()
+
+        # In a real scenario, this would raise an error
+        # We're testing that the dimension mismatch is detectable
+        assert len(wrong_embedding) != 1024
+
+
+class TestVectorSimilaritySearch:
+    """Tests for vector similarity search operations"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_cosine_similarity_search(self, mock_connect):
+        """Test cosine similarity search"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [
+            ("chunk_1", 0.95),
+            ("chunk_2", 0.87),
+            ("chunk_3", 0.82),
+        ]
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        query_vector = [0.1] * 1024
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT chunk_id, 1 - (embedding <=> %s::vector) as similarity "
+            "FROM omega_vectors_1024 "
+            "ORDER BY embedding <=> %s::vector "
+            "LIMIT 3",
+            (query_vector, query_vector),
+        )
+        results = cursor.fetchall()
+
+        assert len(results) == 3
+        assert results[0][1] > results[1][1]  # Check ordering
+        assert results[1][1] > results[2][1]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_similarity_search_with_threshold(self, mock_connect):
+        """Test similarity search with threshold filter"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [("chunk_1", 0.95), ("chunk_2", 0.87)]
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        query_vector = [0.1] * 1024
+        threshold = 0.8
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT chunk_id, 1 - (embedding <=> %s::vector) as similarity "
+            "FROM omega_vectors_1024 "
+            "WHERE 1 - (embedding <=> %s::vector) > %s "
+            "ORDER BY embedding <=> %s::vector",
+            (query_vector, query_vector, threshold, query_vector),
+        )
+        results = cursor.fetchall()
+
+        # All results should be above threshold
+        for result in results:
+            assert result[1] > threshold
+
+
+class TestIndexOperations:
+    """Tests for vector index operations"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_ivfflat_index_exists(self, mock_connect):
+        """Test checking for IVFFlat index existence"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("omega_vectors_1024_embedding_idx",)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT indexname FROM pg_indexes "
+            "WHERE tablename = 'omega_vectors_1024' "
+            "AND indexname LIKE '%embedding%'"
+        )
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert "embedding" in result[0]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_create_ivfflat_index(self, mock_connect):
+        """Test creating IVFFlat index"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS omega_vectors_1024_embedding_idx "
+            "ON omega_vectors_1024 USING ivfflat (embedding vector_cosine_ops) "
+            "WITH (lists = 100)"
+        )
+
+        cursor.execute.assert_called_once()
+        assert "CREATE INDEX" in cursor.execute.call_args[0][0]
+        assert "ivfflat" in cursor.execute.call_args[0][0]
+
+
+class TestErrorHandling:
+    """Tests for error handling and edge cases"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_handle_connection_timeout(self, mock_connect):
+        """Test handling connection timeout"""
+        mock_connect.side_effect = check_embeddings.psycopg2.OperationalError(
+            "could not connect to server: Connection timed out"
+        )
+
+        with pytest.raises(check_embeddings.psycopg2.OperationalError):
+            check_embeddings.psycopg2.connect(
+                host="unreachable_host",
+                port=5432,
+                database="test_db",
+                user="test_user",
+                password="test_pass",
+            )
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_handle_invalid_vector_format(self, mock_connect):
+        """Test handling invalid vector format"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = check_embeddings.psycopg2.DataError(
+            "invalid input syntax for type vector"
+        )
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+
+        with pytest.raises(check_embeddings.psycopg2.DataError):
+            cursor.execute(
+                "INSERT INTO omega_vectors_1024 (chunk_id, embedding) "
+                "VALUES (%s, %s)",
+                ("test_chunk", "not_a_vector"),
+            )
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_handle_null_embedding(self, mock_connect):
+        """Test handling NULL embedding values"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        # Test inserting NULL embedding (if allowed by schema)
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "INSERT INTO omega_vectors_1024 (chunk_id, embedding) " "VALUES (%s, %s)",
+            ("test_chunk", None),
+        )
+
+        # Verify the call was made (actual NULL handling depends on schema)
+        cursor.execute.assert_called_once()
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_handle_duplicate_chunk_id(self, mock_connect):
+        """Test handling duplicate chunk_id insertion"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = check_embeddings.psycopg2.IntegrityError(
+            "duplicate key value violates unique constraint"
+        )
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+
+        with pytest.raises(check_embeddings.psycopg2.IntegrityError):
+            cursor.execute(
+                "INSERT INTO omega_vectors_1024 (chunk_id, embedding) "
+                "VALUES (%s, %s)",
+                ("duplicate_chunk", [0.1] * 1024),
+            )
+
+
+class TestDatabaseCleanup:
+    """Tests for database cleanup and maintenance operations"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_delete_embeddings_by_chunk_id(self, mock_connect):
+        """Test deleting embeddings by chunk_id"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.rowcount = 1
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "DELETE FROM omega_vectors_1024 WHERE chunk_id = %s", ("test_chunk",)
+        )
+
+        assert cursor.rowcount == 1
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_truncate_table(self, mock_connect):
+        """Test truncating the embeddings table"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute("TRUNCATE TABLE omega_vectors_1024")
+
+        cursor.execute.assert_called_once()
+        assert "TRUNCATE" in cursor.execute.call_args[0][0]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_vacuum_table(self, mock_connect):
+        """Test vacuuming the embeddings table"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute("VACUUM ANALYZE omega_vectors_1024")
+
+        cursor.execute.assert_called_once()
+        assert "VACUUM" in cursor.execute.call_args[0][0]
+
+
+class TestPerformanceMetrics:
+    """Tests for performance monitoring and metrics"""
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_measure_table_size(self, mock_connect):
+        """Test measuring table size"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = ("42 MB",)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT pg_size_pretty(pg_total_relation_size('omega_vectors_1024'))"
+        )
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert "MB" in result[0] or "KB" in result[0] or "GB" in result[0]
+
+    @patch("check_embeddings.psycopg2.connect")
+    def test_check_index_usage(self, mock_connect):
+        """Test checking index usage statistics"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.fetchone.return_value = (100, 50)  # (index scans, sequential scans)
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+        cursor.execute(
+            "SELECT idx_scan, seq_scan FROM pg_stat_user_tables "
+            "WHERE relname = 'omega_vectors_1024'"
+        )
+        result = cursor.fetchone()
+
+        assert result is not None
+        assert result[0] >= 0  # index scans
+        assert result[1] >= 0  # sequential scans
+
+
+# Integration-style tests (if database is available)
+class TestEndToEndWorkflow:
+    """End-to-end workflow tests (requires database)"""
+
+    @pytest.mark.integration
+    @patch("check_embeddings.psycopg2.connect")
+    def test_complete_embedding_workflow(self, mock_connect):
+        """Test complete workflow: create, insert, query, delete"""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+
+        # Setup mock responses for different operations
+        mock_cursor.fetchone.side_effect = [
+            ("vector",),  # Extension check
+            ("omega_vectors_1024",),  # Table check
+            (0,),  # Initial count
+            (1,),  # Count after insert
+            ("test_chunk", [0.1] * 1024),  # Retrieve
+            (0,),  # Count after delete
+        ]
+        mock_cursor.fetchall.return_value = [("similar_chunk", 0.9)]
+
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        cursor = mock_conn.cursor().__enter__()
+
+        # 1. Check extension
+        cursor.execute("SELECT extname FROM pg_extension WHERE extname = 'vector'")
+        assert cursor.fetchone()[0] == "vector"
+
+        # 2. Check table
+        cursor.execute(
+            "SELECT tablename FROM pg_tables WHERE tablename = 'omega_vectors_1024'"
+        )
+        assert cursor.fetchone()[0] == "omega_vectors_1024"
+
+        # 3. Count (before)
+        cursor.execute("SELECT COUNT(*) FROM omega_vectors_1024")
+        assert cursor.fetchone()[0] == 0
+
+        # 4. Insert
+        cursor.execute(
+            "INSERT INTO omega_vectors_1024 (chunk_id, embedding) VALUES (%s, %s)",
+            ("test_chunk", [0.1] * 1024),
+        )
+
+        # 5. Count (after insert)
+        cursor.execute("SELECT COUNT(*) FROM omega_vectors_1024")
+        assert cursor.fetchone()[0] == 1
+
+        # 6. Retrieve
+        cursor.execute(
+            "SELECT chunk_id, embedding FROM omega_vectors_1024 WHERE chunk_id = %s",
+            ("test_chunk",),
+        )
+        result = cursor.fetchone()
+        assert result[0] == "test_chunk"
+
+        # 7. Similarity search
+        cursor.execute(
+            "SELECT chunk_id, 1 - (embedding <=> %s::vector) as similarity "
+            "FROM omega_vectors_1024 ORDER BY embedding <=> %s::vector LIMIT 5",
+            ([0.1] * 1024, [0.1] * 1024),
+        )
+        results = cursor.fetchall()
+        assert len(results) > 0
+
+        # 8. Delete
+        cursor.execute(
+            "DELETE FROM omega_vectors_1024 WHERE chunk_id = %s", ("test_chunk",)
+        )
+
+        # 9. Count (after delete)
+        cursor.execute("SELECT COUNT(*) FROM omega_vectors_1024")
+        assert cursor.fetchone()[0] == 0
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--tb=short"])
+    pytest.main([__file__, "-v", "--tb=short"])

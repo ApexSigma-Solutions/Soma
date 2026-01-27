@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="2" failures="0" skipped="3" tests="5" time="3.359" timestamp="2026-01-04T10:05:58.629716+02:00" hostname="SeanMiniPC"><testcase classname="" name="tests.test_ai_import" time="0.000"><error message="collection failure">Omega_KG_stable\tests\test_ai_import.py:8: in &lt;module&gt;
+    from omega_kg.ai_import import AIConversationImporter
+Omega_KG_stable\omega_kg\ai_import.py:18: in &lt;module&gt;
+    from omega_kg.settings import settings
+Omega_KG_stable\omega_kg\settings.py:138: in &lt;module&gt;
+    settings = get_settings()
+               ^^^^^^^^^^^^^^
+Omega_KG_stable\omega_kg\settings.py:119: in get_settings
+    settings_instance = Settings()
+                        ^^^^^^^^^^
+.venv\Lib\site-packages\pydantic_settings\main.py:194: in __init__
+    super().__init__(
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+E   EXTENSION_API_KEY
+E     Field required [type=missing, input_value={'APP_ENV': 'development'...0c46fb9a524176b4ff01c8'}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.12/v/missing</error></testcase><testcase classname="" name="tests.test_capture_server" time="0.000"><skipped message="collection skipped">('d:\\projects\\OmegaKG\\Omega_KG_stable\\tests\\test_capture_server.py', 16, 'Skipped: Tested functions not implemented yet')</skipped></testcase><testcase classname="" name="tests.test_troubleshoot_extension" time="0.000"><skipped message="collection skipped">('d:\\projects\\OmegaKG\\Omega_KG_stable\\tests\\test_troubleshoot_extension.py', 8, 'Skipped: Tested module not implemented yet')</skipped></testcase><testcase classname="" name="tests.test_validate_env_example" time="0.000"><error message="collection failure">ImportError while importing test module 'd:\projects\OmegaKG\Omega_KG_stable\tests\test_validate_env_example.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Program Files\Python312\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Omega_KG_stable\tests\test_validate_env_example.py:4: in &lt;module&gt;
+    from scripts.validate_env_example import parse_settings_for_env_vars, parse_env_example, compare
+E   ModuleNotFoundError: No module named 'scripts.validate_env_example'</error></testcase><testcase classname="" name="tests.test_verify_system" time="0.000"><skipped message="collection skipped">('d:\\projects\\OmegaKG\\Omega_KG_stable\\tests\\test_verify_system.py', 8, 'Skipped: Tested module not implemented yet')</skipped></testcase></testsuite></testsuites>

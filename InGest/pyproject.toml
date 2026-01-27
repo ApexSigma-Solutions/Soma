@@ -1,0 +1,144 @@
+[tool.poetry]
+name = "ingest-llm-as"
+version = "0.1.0"
+description = "A microservice for ingesting data into the ApexSigma ecosystem."
+license = "MIT"
+authors = ["SigmaDev11 <steynsean11@gmail.com>"]
+readme = "README.md"
+packages = [{include = "ingest_llm_as", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+fastapi = ">=0.115.0,<1.0.0"
+uvicorn = {extras = ["standard"], version = "^0.30.1"}
+starlette = ">=0.49.1"
+h11 = "^0.16.0"
+pydantic-settings = ">=2.10.1,<3.0.0"
+prometheus-client = "^0.19.0"
+prometheus-fastapi-instrumentator = "^6.1.0"
+opentelemetry-api = "^1.20.0"
+opentelemetry-sdk = "^1.20.0"
+opentelemetry-instrumentation-fastapi = "^0.57b0"
+opentelemetry-exporter-jaeger-thrift = "^1.20.0"
+deprecated = "^1.2.14"
+opentelemetry-instrumentation-httpx = "^0.57b0"
+structlog = "^23.1.0"
+langfuse = "^3.3.2"
+openai = "^1.34.0"
+numpy = "^1.26.0"
+poml = ">=0.0.7,<0.0.8"
+urllib3 = ">=2.6.0"
+asyncpg = "^0.29.0"
+psycopg2-binary = "^2.9.0"
+sqlalchemy = "^2.0.0"
+pymupdf = "^1.26.7"
+python-multipart = "^0.0.21"
+httpx = "^0.28.1"
+# NLP dependencies for ingest-llms module
+pypdf = "^6.6.0"
+python-docx = "^1.2.0"
+beautifulsoup4 = "^4.14.3"
+spacy = {extras = ["transformers"], version = "^3.7.2"}
+nltk = "^3.9"
+torch = "^2.5.0"
+ebooklib = "^0.20"
+psutil = "^7.2.1"
+pynvml = "^13.0.1"
+redis = "^7.1.0"
+sse-starlette = "^3.1.2"
+# Dagster for Soma Genesis refactor (replaces saga_orchestrator)
+dagster = "^1.9"
+dagster-webserver = "^1.9"
+dagster-postgres = "^0.25"
+# LanceDB for SimpleMem multi-view indexing
+lancedb = "^0.20"
+pyarrow = "^18.0"
+# Local embedding via Ollama
+ollama = "^0.4"
+# BM25 for lexical search
+rank-bm25 = "^0.2"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.0"
+mypy = "^1.10.0"
+pytest = "^8.2.2"
+pre-commit = "^3.7.1"
+filelock = ">=3.20.1"
+pytest-asyncio = "^1.1.0"
+pytest-cov = "^7.0.0"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6.0"
+mkdocs-material = "^9.5.0"
+mkdocstrings = {extras = ["python"], version = "^0.25.0"}
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+timeout = 300
+
+addopts = "-v --tb=short --strict-markers --disable-warnings"
+
+markers = [
+    "unit: unit tests",
+    "integration: integration tests",
+    "asyncio: asyncio tests",
+    "slow: slow tests",
+    "e2e: end-to-end tests",
+    "docker: tests that require docker",
+    "repository_ingestion: marks tests for repository ingestion",
+    "core: core functionality tests"
+]
+
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::FutureWarning"
+]
+
+[tool.coverage.run]
+source = ["src/ingest_llm_as"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = false
+
+# Ignore missing stubs for specific packages
+[[tool.mypy.overrides]]
+    module = [
+        "asyncpg",
+        "asyncpg.*",
+    ]
+    ignore_missing_imports = true
+
+[tool.dagster]
+module_name = "ingest_llm_as"
+project_name = "InGest-LLM.as"

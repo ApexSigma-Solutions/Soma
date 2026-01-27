@@ -1,0 +1,104 @@
+{
+  "audit_id": "phase2-20251226-095309",
+  "timestamp": "2025-12-26T09:53:09.045183",
+  "environment": "stable",
+  "mode": "conservative",
+  "overall_status": "PASS",
+  "exit_code": 0,
+  "summary": {
+    "total_tests": 11,
+    "passed": 11,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "domains": {
+    "A_ingestion": {
+      "tests": [
+        {
+          "name": "linear_receiver_import",
+          "status": "PASS",
+          "duration_ms": 422.55,
+          "message": ""
+        },
+        {
+          "name": "webhook_model_exists",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        },
+        {
+          "name": "raw_event_model_structure",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        },
+        {
+          "name": "endpoint_signature",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        }
+      ],
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "B_intelligence": {
+      "tests": [
+        {
+          "name": "codex_import",
+          "status": "PASS",
+          "duration_ms": 3.58,
+          "message": ""
+        },
+        {
+          "name": "mirmir_import",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        },
+        {
+          "name": "intelligence_models",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        },
+        {
+          "name": "neo4j_connection",
+          "status": "PASS",
+          "duration_ms": 55.39,
+          "message": ""
+        }
+      ],
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "C_infrastructure": {
+      "tests": [
+        {
+          "name": "pre_flight_check",
+          "status": "PASS",
+          "duration_ms": 0.0,
+          "message": ""
+        },
+        {
+          "name": "settings_valid",
+          "status": "PASS",
+          "duration_ms": 1.0,
+          "message": ""
+        },
+        {
+          "name": "capture_server_import",
+          "status": "PASS",
+          "duration_ms": 276.82,
+          "message": ""
+        }
+      ],
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [],
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)"
+    ]
+  }
+}

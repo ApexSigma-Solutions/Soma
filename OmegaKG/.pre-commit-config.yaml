@@ -1,0 +1,67 @@
+# .pre-commit-config.yaml
+# Windows-compatible Python checks only
+# Full infra checks run in CI/CD or via scripts/pre-commit-full.ps1
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.0
+    hooks:
+      - id: mypy
+        # Run mypy only on the files changed by the commit (not the whole package) —
+        # CI will run the full, strict mypy checks. This avoids blocking local dev
+        # iterations while preserving strong typing in CI.
+        args: [--ignore-missing-imports, --python-version=3.12, --no-strict-optional]
+        # Install common third-party type stubs so mypy can type-check here
+        additional_dependencies: ["types-requests", "types-PyYAML"]
+        # Removed `types-all` to avoid massive, sometimes-unavailable bundles on Windows.
+        # If you need specific types, add them explicitly, e.g.:
+        # additional_dependencies: ["types-requests", "types-PyYAML"]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml, -ll, -r, .]
+        files: \.py$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        exclude: ^(.*\.github/.*|templates/.*\.ya?ml)$
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: end-of-file-fixer
+        exclude: \.lock$
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Custom ApexSigma hooks
+  - repo: local
+    hooks:
+      - id: no-root-test-scripts
+        name: Prevent root-level test scripts
+        entry: Root test scripts forbidden (use tests/ directory)
+        language: fail
+        files: ^test_.*\.py$
+        exclude: ^tests/
+
+      - id: no-bytecode
+        name: Prevent Python bytecode
+        entry: Python bytecode forbidden
+        language: fail
+        files: \.pyc$
+
+      - id: no-temp-dagster
+        name: Prevent temp Dagster artifacts
+        entry: Temp Dagster artifacts forbidden
+        language: fail
+        files: ^tmpir.*

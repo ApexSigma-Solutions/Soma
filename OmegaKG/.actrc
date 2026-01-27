@@ -1,0 +1,4 @@
+--container-architecture linux/amd64
+--container-daemon-socket -
+--reuse
+--artifact-server-path /tmp/artifacts

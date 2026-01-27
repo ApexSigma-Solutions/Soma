@@ -1,0 +1,16 @@
+---
+name: project_status
+description: "Project status component for tracking ApexSigma project states"
+version: "1.0"
+---
+
+## Project Status
+
+{% for project in projects %}
+### {{ project.name }}
+**Status**: {{ project.status }}  
+**Details**: {{ project.details }}
+{% if project.branch %}**Branch**: {{ project.branch }}{% endif %}
+{% if project.milestone %}**Milestone**: {{ project.milestone }}{% endif %}
+
+{% endfor %}

@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<poml version="1.0">
+  <knowledgeGraph>
+    <metadata>
+      <created>2026-01-10T12:00:00.000Z</created>
+      <conversationId>mcp-config-20260110</conversationId>
+      <messageCount>7</messageCount>
+      <lastUpdated>2026-01-10T12:00:00.000Z</lastUpdated>
+    </metadata>
+
+    <entities>
+      <!-- Person Entity -->
+      <entity id="user-001" type="person">
+        <name>User</name>
+        <attributes>
+          <attribute key="role" value="requester"/>
+          <attribute key="project" value="OmegaKG"/>
+        </attributes>
+      </entity>
+
+      <!-- System Entity -->
+      <entity id="agent-001" type="system">
+        <name>Claude Code (glm-4.7)</name>
+        <attributes>
+          <attribute key="type" value="agent"/>
+          <attribute key="provider" value="anthropic"/>
+        </attributes>
+      </entity>
+
+      <!-- Agent Systems -->
+      <entity id="agent-kilocode" type="system">
+        <name>Kilocode Agent</name>
+        <attributes>
+          <attribute key="type" value="mcp-agent"/>
+          <attribute key="configPath" value="D:\agents\kilocode\storage\settings\mcp_settings.json"/>
+        </attributes>
+      </entity>
+
+      <entity id="agent-roocode" type="system">
+        <name>Roocode Agent</name>
+        <attributes>
+          <attribute key="type" value="mcp-agent"/>
+          <attribute key="configPath" value="D:\agents\roocode\storage\settings\mcp_settings.json"/>
+        </attributes>
+      </entity>
+
+      <!-- Database Systems -->
+      <entity id="db-postgres" type="system">
+        <name>PostgreSQL Database</name>
+        <attributes>
+          <attribute key="type" value="relational-db"/>
+          <attribute key="host" value="localhost"/>
+          <attribute key="port" value="6000"/>
+          <attribute key="user" value="omega_user"/>
+          <attribute key="database" value="omegakg"/>
+          <attribute key="container" value="apexsigma.postgres"/>
+        </attributes>
+      </entity>
+
+      <entity id="db-redis" type="system">
+        <name>Redis Cache</name>
+        <attributes>
+          <attribute key="type" value="key-value-store"/>
+          <attribute key="host" value="localhost"/>
+          <attribute key="port" value="6379"/>
+          <attribute key="container" value="apexsigma.redis"/>
+        </attributes>
+      </entity>
+
+      <!-- MCP Servers -->
+      <entity id="mcp-postgres" type="system">
+        <name>PostgreSQL MCP Server</name>
+        <attributes>
+          <attribute key="package" value="@modelcontextprotocol/server-postgres"/>
+          <attribute key="command" value="npx"/>
+          <attribute key="connectionString" value="postgresql://omega_user:omega_dev_password@localhost:6000/omegakg"/>
+        </attributes>
+      </entity>
+
+      <entity id="mcp-redis" type="system">
+        <name>Redis MCP Server</name>
+        <attributes>
+          <attribute key="package" value="mcp-server-redis"/>
+          <attribute key="command" value="uvx"/>
+          <attribute key="connectionString" value="redis://localhost:6379"/>
+        </attributes>
+      </entity>
+
+      <!-- Configuration Files -->
+      <entity id="file-docker-compose" type="file">
+        <name>docker-compose.unified.yml</name>
+        <attributes>
+          <attribute key="path" value="d:\projects\OmegaKG\docker-compose.unified.yml"/>
+          <attribute key="purpose" value="database-service-definitions"/>
+        </attributes>
+      </entity>
+
+      <entity id="file-kilocode-mcp" type="file">
+        <name>kilocode mcp_settings.json</name>
+        <attributes>
+          <attribute key="path" value="D:\agents\kilocode\storage\settings\mcp_settings.json"/>
+          <attribute key="format" value="json"/>
+          <attribute key="status" value="updated"/>
+        </attributes>
+      </entity>
+
+      <entity id="file-roocode-mcp" type="file">
+        <name>roocode mcp_settings.json</name>
+        <attributes>
+          <attribute key="path" value="D:\agents\roocode\storage\settings\mcp_settings.json"/>
+          <attribute key="format" value="json"/>
+          <attribute key="status" value="updated"/>
+        </attributes>
+      </entity>
+
+      <!-- Configuration States -->
+      <entity id="state-initial" type="concept">
+        <name>Initial Configuration State</name>
+        <attributes>
+          <attribute key="kilocode-postgres" value="correct"/>
+          <attribute key="kilocode-redis" value="correct"/>
+          <attribute key="roocode-postgres" value="placeholder-variables"/>
+          <attribute key="roocode-redis" value="wrong-port-6739"/>
+        </attributes>
+      </entity>
+
+      <entity id="state-final" type="concept">
+        <name>Final Configuration State</name>
+        <attributes>
+          <attribute key="kilocode-postgres" value="updated-database-name-to-omegakg"/>
+          <attribute key="roocode-postgres" value="actual-connection-string"/>
+          <attribute key="roocode-redis" value="port-corrected-to-6379"/>
+          <attribute key="consistency" value="all-agents-aligned"/>
+        </attributes>
+      </entity>
+    </entities>
+
+    <messages>
+      <message id="msg-001" timestamp="2026-01-10T11:45:00.000Z" userId="user-001">
+        <content>Request to configure PostgreSQL and Redis MCP servers for Kilocode and Roocode agents</content>
+        <entities>
+          <entityRef ref="user-001"/>
+          <entityRef ref="agent-kilocode"/>
+          <entityRef ref="agent-roocode"/>
+          <entityRef ref="mcp-postgres"/>
+          <entityRef ref="mcp-redis"/>
+        </entities>
+      </message>
+
+      <message id="msg-002" timestamp="2026-01-10T11:46:00.000Z" userId="agent-001">
+        <content>Read existing MCP settings files and explored docker-compose.unified.yml to identify connection details</content>
+        <entities>
+          <entityRef ref="agent-001"/>
+          <entityRef ref="file-kilocode-mcp"/>
+          <entityRef ref="file-roocode-mcp"/>
+          <entityRef ref="file-docker-compose"/>
+          <entityRef ref="db-postgres"/>
+          <entityRef ref="db-redis"/>
+        </entities>
+      </message>
+
+      <message id="msg-003" timestamp="2026-01-10T11:47:00.000Z" userId="agent-001">
+        <content>Discovered connection details: PostgreSQL (localhost:6000, omegakg, omega_user), Redis (localhost:6379). Identified configuration discrepancies.</content>
+        <entities>
+          <entityRef ref="agent-001"/>
+          <entityRef ref="state-initial"/>
+          <entityRef ref="db-postgres"/>
+          <entityRef ref="db-redis"/>
+        </entities>
+      </message>
+
+      <message id="msg-004" timestamp="2026-01-10T11:48:00.000Z" userId="agent-001">
+        <content>Created implementation plan and asked user to confirm target scope (both agents)</content>
+        <entities>
+          <entityRef ref="agent-001"/>
+          <entityRef ref="user-001"/>
+          <entityRef ref="state-initial"/>
+        </entities>
+      </message>
+
+      <message id="msg-005" timestamp="2026-01-10T11:49:00.000Z" userId="user-001">
+        <content>Approved plan for both agents</content>
+        <entities>
+          <entityRef ref="user-001"/>
+          <entityRef ref="agent-001"/>
+        </entities>
+      </message>
+
+      <message id="msg-006" timestamp="2026-01-10T11:50:00.000Z" userId="agent-001">
+        <content>Implemented configuration changes: Updated Roocode PostgreSQL (replaced placeholders), fixed Roocode Redis port (6739→6379), updated Kilocode database name (omega_KG_stable→omegakg)</content>
+        <entities>
+          <entityRef ref="agent-001"/>
+          <entityRef ref="file-kilocode-mcp"/>
+          <entityRef ref="file-roocode-mcp"/>
+          <entityRef ref="state-final"/>
+          <entityRef ref="mcp-postgres"/>
+          <entityRef ref="mcp-redis"/>
+        </entities>
+      </message>
+
+      <message id="msg-007" timestamp="2026-01-10T11:51:00.000Z" userId="agent-001">
+        <content>Task completed. Summary provided with verification steps for agent restart and Docker container startup</content>
+        <entities>
+          <entityRef ref="agent-001"/>
+          <entityRef ref="user-001"/>
+          <entityRef ref="state-final"/>
+        </entities>
+      </message>
+    </messages>
+
+    <relationships>
+      <!-- User-Agent Relationships -->
+      <relationship id="rel-001" type="requested">
+        <source ref="user-001"/>
+        <target ref="agent-001"/>
+        <attributes>
+          <attribute key="timestamp" value="2026-01-10T11:45:00.000Z"/>
+          <attribute key="action" value="configure-mcp-servers"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-002" type="approved">
+        <source ref="user-001"/>
+        <target ref="agent-001"/>
+        <attributes>
+          <attribute key="timestamp" value="2026-01-10T11:49:00.000Z"/>
+          <attribute key="scope" value="both-agents"/>
+        </attributes>
+      </relationship>
+
+      <!-- Agent-File Relationships -->
+      <relationship id="rel-003" type="modified">
+        <source ref="agent-001"/>
+        <target ref="file-kilocode-mcp"/>
+        <attributes>
+          <attribute key="timestamp" value="2026-01-10T11:50:00.000Z"/>
+          <attribute key="change" value="updated-postgres-database-name"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-004" type="modified">
+        <source ref="agent-001"/>
+        <target ref="file-roocode-mcp"/>
+        <attributes>
+          <attribute key="timestamp" value="2026-01-10T11:50:00.000Z"/>
+          <attribute key="change" value="updated-postgres-connection-fixed-redis-port"/>
+        </attributes>
+      </relationship>
+
+      <!-- Database-MCP Relationships -->
+      <relationship id="rel-005" type="configured">
+        <source ref="db-postgres"/>
+        <target ref="mcp-postgres"/>
+        <attributes>
+          <attribute key="connectionString" value="postgresql://omega_user:omega_dev_password@localhost:6000/omegakg"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-006" type="configured">
+        <source ref="db-redis"/>
+        <target ref="mcp-redis"/>
+        <attributes>
+          <attribute key="connectionString" value="redis://localhost:6379"/>
+        </attributes>
+      </relationship>
+
+      <!-- Agent Configuration Relationships -->
+      <relationship id="rel-007" type="configures">
+        <source ref="agent-kilocode"/>
+        <target ref="mcp-postgres"/>
+        <attributes>
+          <attribute key="status" value="active"/>
+          <attribute key="disabled" value="false"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-008" type="configures">
+        <source ref="agent-kilocode"/>
+        <target ref="mcp-redis"/>
+        <attributes>
+          <attribute key="status" value="active"/>
+          <attribute key="disabled" value="false"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-009" type="configures">
+        <source ref="agent-roocode"/>
+        <target ref="mcp-postgres"/>
+        <attributes>
+          <attribute key="status" value="active"/>
+          <attribute key="disabled" value="false"/>
+        </attributes>
+      </relationship>
+
+      <relationship id="rel-010" type="configures">
+        <source ref="agent-roocode"/>
+        <target ref="mcp-redis"/>
+        <attributes>
+          <attribute key="status" value="active"/>
+          <attribute key="disabled" value="false"/>
+        </attributes>
+      </relationship>
+
+      <!-- State Transitions -->
+      <relationship id="rel-011" type="transformed-to">
+        <source ref="state-initial"/>
+        <target ref="state-final"/>
+        <attributes>
+          <attribute key="timestamp" value="2026-01-10T11:50:00.000Z"/>
+          <attribute key="agent" value="agent-001"/>
+        </attributes>
+      </relationship>
+    </relationships>
+  </knowledgeGraph>
+</poml>

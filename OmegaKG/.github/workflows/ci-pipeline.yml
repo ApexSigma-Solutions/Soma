@@ -1,0 +1,152 @@
+name: Linear Sync CI Pipeline
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+      - beta
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "2.2.0"
+
+jobs:
+  config-drift-check:
+    name: 🔍 Config Drift Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Run Config Drift Test
+        run: poetry run pytest tests/test_config_drift.py -v
+
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: config-drift-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Setup Test Environment
+        run: |
+          mkdir -p ${{ github.workspace }}/tests/fixtures/vault
+          cat > ${{ github.workspace }}/tests/fixtures/vault/test_note.md << 'EOF'
+          ---
+          status: draft
+          ---
+          # Test Note
+          EOF
+
+      - name: Run Unit Tests
+        env:
+          OBSIDIAN_VAULT_PATH: ${{ github.workspace }}/tests/fixtures/vault
+        run: |
+          poetry run pytest tests/ -m "not integration" -v --cov=omega_kg --cov-report=xml:coverage-unit.xml --cov-report=term
+
+      - name: Upload Unit Test Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit.xml
+          retention-days: 7
+
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=testuser --timeout=5"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Neo4j for Graph Topology (Phase 6: TN-LINEAR-06)
+      neo4j:
+        image: neo4j:5-community
+        env:
+          NEO4J_AUTH: neo4j/testpassword
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p testpassword 'RETURN 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pip install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Setup Test Vault
+        run: |
+          mkdir -p ${{ github.workspace }}/test_vault
+          echo "Test vault directory created"
+
+      - name: Run Integration Tests with Coverage
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
+          OBSIDIAN_VAULT_PATH: ${{ github.workspace }}/test_vault
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: testpassword
+        run: |
+          poetry run pytest tests/integration/ -v \
+            --cov=omega_kg/domain/linear \
+            --cov-fail-under=80 \
+            --cov-report=xml:coverage-integration.xml \
+            --cov-report=term
+
+      - name: Upload Integration Test Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage-integration.xml
+          retention-days: 7

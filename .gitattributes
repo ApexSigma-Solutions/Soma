@@ -1,0 +1,29 @@
+# ==============================================================================
+# SOMA WINDOWS SAFETY PROTOCOL
+# Purpose: Enforce LF (Linux) line endings to prevent Docker failures on Windows.
+# Critical for shell scripts (.sh) and Python files mounted in Docker.
+# ==============================================================================
+
+# Detect text files and normalize (convert to LF on checkout)
+* text=auto
+
+# Explicitly force LF for these file types (Critical for Docker)
+*.sh      text eol=lf
+*.py      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.toml    text eol=lf
+Dockerfile text eol=lf
+
+# Binary files (Do not touch - prevent corruption)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.exe binary
+*.dll binary
+*.lock binary

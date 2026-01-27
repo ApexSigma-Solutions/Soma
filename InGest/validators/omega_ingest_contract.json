@@ -1,0 +1,18 @@
+{
+  "contract_version": "1.0",
+  "input_schema": {
+    "source": "RawWebhookEvent (Postgres table: raw_webhook_events)",
+    "payload": "JSONB (unvalidated, max 10MB)",
+    "headers": "JSONB (including X-Linear-Signature)"
+  },
+  "output_schema": {
+    "target": "StructuredEvent (Neo4j: ChatSession, Decision nodes)",
+    "validation": "Pydantic v2 (Strict Mode)",
+    "embedding": "BGE-M3, 1024d (PGVector)"
+  },
+  "failure_handling": {
+    "dead_letter_queue": "ingest_failures (Postgres table)",
+    "circuit_breaker_threshold": 3,
+    "health_degradation_timeout": "5 minutes"
+  }
+}

@@ -1,0 +1,18 @@
+---
+name: mission_brief
+description: "Mission brief component for ApexSigma agent context"
+version: "1.0"
+---
+
+## Mission Brief
+
+**Objective**: {{ objective }}
+
+**Agent Roster**:
+{% for role, agents in agent_roster.items() %}
+- **{{ role.title() }}**: {{ agents if agents is string else ', '.join(agents) }}
+{% endfor %}
+
+**Embedding Service**: {{ embedding_service }}
+
+**Session Focus**: {{ session_focus | default("Continue development of ApexSigma ecosystem") }}

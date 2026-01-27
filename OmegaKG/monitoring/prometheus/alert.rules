@@ -1,0 +1,105 @@
+groups:
+- name: embedding_alerts
+  rules:
+  - alert: HighErrorRate
+    expr: rate(embedding_requests_total{status="error"}[5m]) / rate(embedding_requests_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: High error rate in embedding generation ({{ $value }}%)
+      description: More than 5% of embedding requests are failing over the last 5 minutes.
+
+  - alert: HighLatency
+    expr: histogram_quantile(0.95, rate(embedding_request_duration_seconds_bucket[5m])) > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: 95th percentile embedding latency above 5 seconds ({{ $value }}s)
+      description: Embedding latency is high, check worker performance.
+
+  - alert: HighQueueSize
+    expr: queue_size > 100
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Embedding queue size is high ({{ $value }})
+      description: The queue of pending embedding tasks is growing, consider scaling.
+
+- name: system_alerts
+  rules:
+  - alert: HighCPU
+    expr: system_cpu_usage > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: CPU usage is high ({{ $value }}%)
+      description: CPU usage has exceeded 90% for 5 minutes.
+
+  - alert: HighMemory
+    expr: system_memory_usage > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Memory usage is high ({{ $value }}%)
+      description: Memory usage has exceeded 85% for 5 minutes.
+
+  - alert: HighDisk
+    expr: system_disk_usage > 90
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Disk usage is high ({{ $value }}%)
+      description: Disk usage has exceeded 90% for 10 minutes.
+
+  - alert: GPUHighTemperature
+    expr: gpu_temperature > 85
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: GPU temperature high ({{ $value }}°C)
+      description: GPU temperature exceeds safe threshold.
+
+  - alert: GPUHighMemoryUsage
+    expr: gpu_memory_usage > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: GPU memory usage high ({{ $value }}%)
+      description: GPU memory usage exceeds 90%.
+
+  - alert: GPUHighUtilization
+    expr: gpu_utilization > 95
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: GPU utilization high ({{ $value }}%)
+      description: GPU utilization consistently above 95%.
+
+- name: service_health
+  rules:
+  - alert: ServiceDown
+    expr: up{job="embedding-worker"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: Embedding worker is down
+      description: The embedding worker service is not responding to Prometheus scraping.
+
+  - alert: DatabaseDown
+    expr: up{job=~"postgres|neo4j"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: Database service down
+      description: One of the database services is not reachable.

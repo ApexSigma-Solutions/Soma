@@ -1,0 +1,364 @@
+diff --git a/omega_kg/capture_server.py b/omega_kg/capture_server.py
+index 5a58115..84aba0f 100644
+--- a/omega_kg/capture_server.py
++++ b/omega_kg/capture_server.py
+@@ -29,18 +29,23 @@
+
+ import httpx
+ import neo4j
+-from fastapi import FastAPI, Request
++from fastapi import FastAPI, HTTPException, Request
+ from fastapi.middleware.cors import CORSMiddleware
+ from neo4j import GraphDatabase
+
+ from omega_kg.config import log_config_summary
+ from omega_kg.linear_sync import LinearSync
+-from omega_kg.models.capture import ConversationData
++from omega_kg.models.capture import (
++    ConversationData,
++    ObsidianUpdateRequest,
++    ObsidianUpdateResponse,
++)
+ from omega_kg.percolation import PercolationEngine
+ from omega_kg.routers import linear_receiver
+ from omega_kg.routers.capture import router as capture_router
+ from omega_kg.routers.capture import set_percolate_function
+ from omega_kg.settings import settings
++from omega_kg.smart_parser import SmartParser
+ from omega_kg.utils.capture_utils import generate_conversation_hash
+ from omega_kg.vector_store import VectorStore, get_vector_store
+ from omega_kg.workers.embedding_worker import start_worker, stop_worker
+@@ -617,6 +622,7 @@ async def root():
+         "endpoints": {
+             "capture": "POST /capture",
+             "health": "GET /health",
++            "obsidian_update": "POST /obsidian-update",
+             "linear_webhook": "POST /webhook/linear",
+         },
+         "docs": "/docs",
+@@ -624,6 +630,68 @@ async def root():
+     }
+
+
++# --- Obsidian Update Endpoint ---
++@app.post("/obsidian-update")
++async def obsidian_update_endpoint(
++    data: ObsidianUpdateRequest,
++) -> ObsidianUpdateResponse:
++    """
++    Sync an Obsidian note to Linear.
++
++    This endpoint is triggered by the Obsidian client to create or update
++    a Linear issue based on the note content. The SmartParser handles parsing
++    tags, assignees, labels, and priority from the note content.
++
++    Args:
++        data: ObsidianUpdateRequest with note_path
++
++    Returns:
++        ObsidianUpdateResponse with Linear ticket ID and URL
++
++    Raises:
++        HTTPException: 500 if sync fails
++    """
++    logger.info(f"Received Obsidian update request for: {data.note_path}")
++
++    try:
++        # Initialize SmartParser and sync note
++        parser = SmartParser()
++        result = await parser.sync_note_to_linear(data.note_path)
++
++        if result is None:
++            logger.error(f"Failed to sync note: {data.note_path}")
++            raise HTTPException(
++                status_code=500,
++                detail="Failed to sync note to Linear - parser returned None (check LINEAR_TEAM_ID configuration and note content)",
++            )
++
++        # Extract Linear issue details from result
++        linear_id = result.get("id")
++        linear_identifier = result.get("identifier")
++        linear_url = result.get("url")
++
++        logger.info(
++            f"Successfully synced {data.note_path} to Linear issue {linear_identifier}"
++        )
++
++        return ObsidianUpdateResponse(
++            success=True,
++            linear_id=linear_id,
++            linear_identifier=linear_identifier,
++            linear_url=linear_url,
++            message=f"Successfully synced to Linear issue {linear_identifier}",
++        )
++
++    except HTTPException:
++        # Re-raise HTTPExceptions as-is
++        raise
++    except Exception as e:
++        logger.error(f"Error syncing note to Linear: {e}", exc_info=True)
++        raise HTTPException(
++            status_code=500, detail=f"Internal server error: {str(e)}"
++        )
++
++
+ # --- Linear Webhook Endpoint ---
+ @app.post("/webhook/linear")
+ async def linear_webhook_endpoint(request: Request):
+diff --git a/omega_kg/models/capture.py b/omega_kg/models/capture.py
+index 0acad1d..faff49f 100644
+--- a/omega_kg/models/capture.py
++++ b/omega_kg/models/capture.py
+@@ -55,4 +55,33 @@ class CaptureResponse(BaseModel):
+     message: str
+
+
+-__all__ = ["Token", "Message", "ConversationData", "CaptureResponse"]
++class ObsidianUpdateRequest(BaseModel):
++    """Request model for Obsidian note sync to Linear."""
++
++    note_path: str = Field(
++        ...,
++        description="Path to the Obsidian note (relative or absolute)",
++        examples=["D:\\projects\\vault\\Tasks\\task.md"],
++    )
++
++
++class ObsidianUpdateResponse(BaseModel):
++    """Response model for Obsidian update operations."""
++
++    success: bool
++    linear_id: Optional[str] = Field(None, description="Linear issue ID")
++    linear_identifier: Optional[str] = Field(
++        None, description="Linear issue identifier (e.g., LIN-123)"
++    )
++    linear_url: Optional[str] = Field(None, description="Linear issue URL")
++    message: str
++
++
++__all__ = [
++    "Token",
++    "Message",
++    "ConversationData",
++    "CaptureResponse",
++    "ObsidianUpdateRequest",
++    "ObsidianUpdateResponse",
++]
+diff --git a/tests/test_capture_server.py b/tests/test_capture_server.py
+index 894db46..ff5627a 100644
+--- a/tests/test_capture_server.py
++++ b/tests/test_capture_server.py
+@@ -1324,3 +1324,213 @@ def mock_auth():
+             assert memory_increase < 50 * 1024 * 1024  # Less than 50MB increase
+         finally:
+             app.dependency_overrides.pop(validate_access_token, None)
++
++
++class TestObsidianUpdateEndpoint:
++    """Test the /obsidian-update endpoint."""
++
++    def test_obsidian_update_success_create(self):
++        """Test successful creation of a new Linear issue from Obsidian note."""
++        client = TestClient(app)
++
++        payload = {"note_path": "D:\\projects\\vault\\Tasks\\task.md"}
++
++        # Mock SmartParser where it's used in capture_server
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Mock successful sync returning a new issue
++            mock_parser.sync_note_to_linear = AsyncMock(
++                return_value={
++                    "id": "issue_123",
++                    "identifier": "LIN-123",
++                    "url": "https://linear.app/team/issue/LIN-123",
++                }
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 200
++            data = response.json()
++            assert data["success"] is True
++            assert data["linear_id"] == "issue_123"
++            assert data["linear_identifier"] == "LIN-123"
++            assert data["linear_url"] == "https://linear.app/team/issue/LIN-123"
++            assert "LIN-123" in data["message"]
++
++            # Verify SmartParser was called with correct path
++            mock_parser.sync_note_to_linear.assert_called_once_with(
++                "D:\\projects\\vault\\Tasks\\task.md"
++            )
++
++    def test_obsidian_update_success_update(self):
++        """Test successful update of an existing Linear issue from Obsidian note."""
++        client = TestClient(app)
++
++        payload = {"note_path": "/home/vault/Tasks/existing_task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Mock successful sync returning updated issue
++            mock_parser.sync_note_to_linear = AsyncMock(
++                return_value={
++                    "id": "issue_456",
++                    "identifier": "LIN-456",
++                    "url": "https://linear.app/team/issue/LIN-456",
++                }
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 200
++            data = response.json()
++            assert data["success"] is True
++            assert data["linear_identifier"] == "LIN-456"
++
++    def test_obsidian_update_failure_returns_none(self):
++        """Test endpoint when SmartParser returns None (failure case)."""
++        client = TestClient(app)
++
++        payload = {"note_path": "/home/vault/Tasks/invalid_task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Mock sync returning None (failure)
++            mock_parser.sync_note_to_linear = AsyncMock(return_value=None)
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 500
++            assert "Failed to sync note to Linear" in response.json()["detail"]
++
++    def test_obsidian_update_exception_handling(self):
++        """Test endpoint exception handling."""
++        client = TestClient(app)
++
++        payload = {"note_path": "/home/vault/Tasks/task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Mock sync raising an exception
++            mock_parser.sync_note_to_linear = AsyncMock(
++                side_effect=Exception("Linear API error")
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 500
++            assert "Internal server error" in response.json()["detail"]
++            assert "Linear API error" in response.json()["detail"]
++
++    def test_obsidian_update_missing_note_path(self):
++        """Test endpoint with missing note_path field."""
++        client = TestClient(app)
++
++        payload = {}  # Missing note_path
++
++        response = client.post("/obsidian-update", json=payload)
++
++        assert response.status_code == 422  # Validation error
++
++    def test_obsidian_update_async_execution(self):
++        """Test that the endpoint properly awaits async SmartParser calls."""
++        client = TestClient(app)
++
++        payload = {"note_path": "/home/vault/Tasks/task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Use AsyncMock to verify async/await usage
++            mock_parser.sync_note_to_linear = AsyncMock(
++                return_value={
++                    "id": "issue_789",
++                    "identifier": "LIN-789",
++                    "url": "https://linear.app/team/issue/LIN-789",
++                }
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 200
++            # Verify the async method was called (AsyncMock tracks calls)
++            assert mock_parser.sync_note_to_linear.called
++            assert mock_parser.sync_note_to_linear.await_count == 1
++
++    def test_obsidian_update_windows_path(self):
++        """Test endpoint with Windows-style path."""
++        client = TestClient(app)
++
++        payload = {"note_path": "C:\\Users\\username\\vault\\Tasks\\task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            mock_parser.sync_note_to_linear = AsyncMock(
++                return_value={
++                    "id": "issue_999",
++                    "identifier": "LIN-999",
++                    "url": "https://linear.app/team/issue/LIN-999",
++                }
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 200
++            data = response.json()
++            assert data["linear_identifier"] == "LIN-999"
++
++            # Verify the Windows path was passed correctly
++            mock_parser.sync_note_to_linear.assert_called_once_with(
++                "C:\\Users\\username\\vault\\Tasks\\task.md"
++            )
++
++    def test_obsidian_update_response_model_validation(self):
++        """Test that the response model is properly validated."""
++        client = TestClient(app)
++
++        payload = {"note_path": "/home/vault/Tasks/task.md"}
++
++        with patch("omega_kg.capture_server.SmartParser") as mock_parser_class:
++            mock_parser = MagicMock()
++            mock_parser_class.return_value = mock_parser
++
++            # Return minimal valid response
++            mock_parser.sync_note_to_linear = AsyncMock(
++                return_value={
++                    "id": "issue_minimal",
++                    "identifier": "LIN-MIN",
++                    # url is optional
++                }
++            )
++
++            response = client.post("/obsidian-update", json=payload)
++
++            assert response.status_code == 200
++            data = response.json()
++            assert data["success"] is True
++            assert data["linear_id"] == "issue_minimal"
++            assert data["linear_identifier"] == "LIN-MIN"
++            # URL should be None when not provided
++            assert data["linear_url"] is None
++
++    def test_root_endpoint_includes_obsidian_update(self):
++        """Test that the root endpoint lists the new obsidian-update endpoint."""
++        client = TestClient(app)
++
++        response = client.get("/")
++
++        assert response.status_code == 200
++        data = response.json()
++        assert "endpoints" in data
++        assert "obsidian_update" in data["endpoints"]
++        assert data["endpoints"]["obsidian_update"] == "POST /obsidian-update"

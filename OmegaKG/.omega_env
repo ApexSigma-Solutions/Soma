@@ -1,0 +1,81 @@
+#!/bin/bash
+# OmegaKG Project Shell Environment
+# Source this file to set up the shell for the OmegaKG stable environment
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Set up OmegaKG environment variables
+export OMEGA_KG_ROOT="$SCRIPT_DIR"
+export OMEGA_KG_SCRIPTS="${OMEGA_KG_ROOT}/scripts"
+export OMEGA_KG_VAULT="/d/projects/omegavault.as"
+export OMEGA_KG_ENV="stable"
+export OMEGA_KG_LOG_DIR="${OMEGA_KG_ROOT}/logs"
+
+# Add Poetry to PATH (if not already there)
+if [[ ":$PATH:" != *":$HOME/AppData/Roaming/Python/Python312/Scripts:"* ]]; then
+    export PATH="$HOME/AppData/Roaming/Python/Python312/Scripts:$PATH"
+fi
+
+# Add scripts directory to PATH
+if [[ ":$PATH:" != *":${OMEGA_KG_SCRIPTS}:"* ]]; then
+    export PATH="${OMEGA_KG_SCRIPTS}:$PATH"
+fi
+
+# Set up Poetry virtual environment
+export POETRY_ACTIVE=1
+export POETRY_VENV="${OMEGA_KG_ROOT}/.venv"
+
+# Create useful aliases
+alias omega-cd='cd "$OMEGA_KG_ROOT"'
+alias omega-scripts='cd "$OMEGA_KG_SCRIPTS"'
+alias omega-vault='cd "$OMEGA_KG_VAULT"'
+alias omega-logs='cd "$OMEGA_KG_LOG_DIR"'
+alias omega-config='cd "$OMEGA_KG_ROOT" && cat .env | grep -v "^#" | grep -v "^$"'
+alias omega-health='curl -s http://127.0.0.1:8765/health || echo "Server not responding"'
+alias omega-start='powershell -ExecutionPolicy Bypass -File "$OMEGA_KG_SCRIPTS/start_full_stack.ps1"'
+alias omega-stop='powershell -ExecutionPolicy Bypass -File "$OMEGA_KG_SCRIPTS/cleanup_before_start.ps1"'
+alias omega-test='cd "$OMEGA_KG_SCRIPTS" && powershell -ExecutionPolicy Bypass -File check_tasks_simple.ps1'
+alias omega-verify='cd "$OMEGA_KG_SCRIPTS" && powershell -ExecutionPolicy Bypass -File verify_stack.ps1'
+
+# Poetry shortcuts
+alias omega-poetry='poetry'
+alias omega-shell='poetry shell'
+alias omega-install='poetry install --with dev'
+alias omega-run='poetry run python -m omega_kg.capture_server'
+
+# Display environment info
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                   OmegaKG Stable Environment                   ║"
+echo "╠═══════════════════════════════════════════════════════════════╣"
+echo "║ Root:       $OMEGA_KG_ROOT"
+echo "║ Scripts:    $OMEGA_KG_SCRIPTS"
+echo "║ Vault:      $OMEGA_KG_VAULT"
+echo "║ Logs:       $OMEGA_KG_LOG_DIR"
+echo "║ Env:        $OMEGA_KG_ENV"
+echo "║ Poetry:     $POETRY_VENV"
+echo "╠═══════════════════════════════════════════════════════════════╣"
+echo "║ Quick Commands:                                                ║"
+echo "║   omega-cd      - Go to project root                           ║"
+echo "║   omega-scripts - Go to scripts directory                      ║"
+echo "║   omega-vault   - Go to Obsidian vault                         ║"
+echo "║   omega-start   - Start full stack                             ║"
+echo "║   omega-stop    - Stop all services                            ║"
+echo "║   omega-health  - Check server health                          ║"
+echo "║   omega-shell   - Activate Poetry shell                        ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Auto-complete function for omega commands
+_omega_completion() {
+    local commands="cd scripts vault logs config health start stop test verify poetry shell install run"
+    COMPREPLY=($(compgen -W "$commands" -- "${COMP_WORDS[COMP_CWORD]}"))
+    return 0
+}
+
+# Set up tab completion for omega aliases
+complete -F _omega_completion omega-cd omega-scripts omega-vault omega-logs omega-config omega-health omega-start omega-stop omega-test omega-verify omega-shell omega-install omega-run
+
+# Export functions for use in subshells
+export -f _omega_completion 2>/dev/null || true

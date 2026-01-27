@@ -1,0 +1,197 @@
+From: AI Code Review Agent <ai@apexsigma.io>
+Date: Thu, 21 Nov 2025 06:12:00 +0200
+Subject: [PATCH 1/5] fix(smart_parser): correct resolve_path method call
+
+The SmartParser was calling _resolve_path (private method) instead of
+the public resolve_path method on VaultUtils. This caused 100% sync
+failure rate with AttributeError.
+
+---
+ omega_kg/smart_parser.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/omega_kg/smart_parser.py b/omega_kg/smart_parser.py
+index abc1234..def5678 100644
+--- a/omega_kg/smart_parser.py
++++ b/omega_kg/smart_parser.py
+@@ -175,7 +175,7 @@ class SmartParser:
+         """
+         try:
+             # 1. READ NOTE
+-            full_path = self.vault._resolve_path(note_path)
++            full_path = self.vault.resolve_path(note_path)
+             frontmatter = self.vault.read_note_frontmatter(full_path)
+             content = self.vault.read_note(full_path)
+
+
+From: AI Code Review Agent <ai@apexsigma.io>
+Date: Thu, 21 Nov 2025 06:12:00 +0200
+Subject: [PATCH 2/5] fix(linear_sync): make webhook handler async-safe
+
+The webhook handler was performing blocking I/O (Neo4j + filesystem)
+on the FastAPI async event loop, causing performance degradation.
+Use run_in_threadpool to execute in background thread.
+
+---
+ omega_kg/linear_sync.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/omega_kg/linear_sync.py b/omega_kg/linear_sync.py
+index abc1234..def5678 100644
+--- a/omega_kg/linear_sync.py
++++ b/omega_kg/linear_sync.py
+@@ -1,5 +1,6 @@
+ import hmac
+ import hashlib
++from starlette.concurrency import run_in_threadpool
+ from fastapi import Request, HTTPException, status
+ from neo4j import GraphDatabase
+ from pathlib import Path
+@@ -85,7 +86,8 @@ class LinearSync:
+         signature = request.headers.get("Linear-Signature", "")
+         if not self._verify_signature(signature, payload_str):
+             raise HTTPException(status_code=403, detail="Invalid signature")
+-        self.handle_linear_webhook(payload)
++        # Execute blocking I/O in background thread to avoid blocking event loop
++        await run_in_threadpool(self.handle_linear_webhook, payload)
+         return {"status": "processed"}
+
+     def _verify_signature(self, signature: str, payload: str) -> bool:
+
+From: AI Code Review Agent <ai@apexsigma.io>
+Date: Thu, 21 Nov 2025 06:12:00 +0200
+Subject: [PATCH 3/5] fix(capture_server): add request body size limit for HTML
+
+Add 500KB limit on raw_html payload to prevent DoS attacks via
+memory exhaustion from arbitrarily large HTML documents.
+
+---
+ omega_kg/capture_server.py | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/omega_kg/capture_server.py b/omega_kg/capture_server.py
+index abc1234..def5678 100644
+--- a/omega_kg/capture_server.py
++++ b/omega_kg/capture_server.py
+@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
+ from typing import Optional, List, Dict, Any
+ from pathlib import Path
+ import uuid
++from fastapi import Request
+
+ from omega_kg.settings import get_settings
+ from omega_kg.vault_utils import VaultUtils
+@@ -30,6 +31,9 @@ neo4j_connection_pool = None
+ # Session tracking for batch percolation
+ pending_sessions: Dict[str, List[Neo4jSessionData]] = {}
+
++# Security limits
++MAX_HTML_SIZE_BYTES = 500_000  # 500KB
++
+ # Lifespan handler
+ @asynccontextmanager
+ async def lifespan(app: FastAPI):
+@@ -477,12 +481,18 @@ def write_to_obsidian(platform: str, markdown_content: str, conv_hash: str) ->
+ @app.post(\"/capture\", response_model=CaptureResponse, tags=[\"Capture\"])
+ async def capture_endpoint(
+     data: ConversationData,
++    request: Request,
+     _token_payload: Dict[str, Any] = Security(validate_access_token),
+ ) -> CaptureResponse:
++    # Security: Check request body size before processing
++    content_length = request.headers.get(\"content-length\")
++    if content_length and int(content_length) > MAX_HTML_SIZE_BYTES:
++        raise HTTPException(status_code=413, detail=\"HTML payload too large (max 500KB)\")
+
+     # 1. PARSING LOGIC
+     if (not data.messages) and data.raw_html:
+         logger.info(f\"Detecting Raw HTML. Attempting server-side parsing for: {data.url}\")
++        if len(data.raw_html) > MAX_HTML_SIZE_BYTES:
++            raise HTTPException(status_code=413, detail=\"HTML content too large (max 500KB)\")
+         try:
+             data.messages = parse_html_content(data.raw_html, data.url or \"unknown\")
+             logger.info(f\"✓ Successfully parsed {len(data.messages)} messages.\")
+
+From: AI Code Review Agent <ai@apexsigma.io>
+Date: Thu, 21 Nov 2025 06:12:00 +0200
+Subject: [PATCH 4/5] fix(auth_utils): replace deprecated datetime.utcnow()
+
+datetime.utcnow() is deprecated in Python 3.12+.
+Replace with datetime.now(timezone.utc) for timezone-aware operations.
+
+---
+ omega_kg/auth_utils.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/omega_kg/auth_utils.py b/omega_kg/auth_utils.py
+index abc1234..def5678 100644
+--- a/omega_kg/auth_utils.py
++++ b/omega_kg/auth_utils.py
+@@ -1,4 +1,5 @@
+ from datetime import datetime, timedelta, timezone
++from datetime import timezone
+ from typing import Optional, Dict, Any
+ from fastapi import Depends, HTTPException, status, Security
+ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
+@@ -57,7 +58,7 @@ def get_static_api_key(api_key_header: str = Security(API_KEY_HEADER)) -> str:
+ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+     to_encode = data.copy()
+     if expires_delta:
+-        expire = datetime.utcnow() + expires_delta
++        expire = datetime.now(timezone.utc) + expires_delta
+     else:
+         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiration_minutes)
+     to_encode.update({\"exp\": expire})
+
+From: AI Code Review Agent <ai@apexsigma.io>
+Date: Thu, 21 Nov 2025 06:12:00 +0200
+Subject: [PATCH 5/5] fix(capture_server): remove debug print statements
+
+Debug print statements should use logger.debug() for proper logging
+levels and consistency with the rest of the codebase.
+
+---
+ omega_kg/capture_server.py | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/omega_kg/capture_server.py b/omega_kg/capture_server.py
+index abc1234..def5678 100644
+--- a/omega_kg/capture_server.py
++++ b/omega_kg/capture_server.py
+@@ -45,23 +45,23 @@ async def lifespan(app: FastAPI):
+ @asynccontextmanager
+ async def lifespan(app: FastAPI):
+     \"\"\"Lifespan event handler to schedule batch percolation on server startup.\"\"\"
+-    print(\"DEBUG: Entering lifespan\")
++    logger.debug(\"Entering lifespan\")
+     try:
+         scheduler = AsyncIOScheduler()
+         scheduler.add_job(
+             batch_percolate_sessions, \"interval\", minutes=5, id=\"session_percolation\"
+         )
+         scheduler.start()
+         logger.info(\"✓ Session percolation scheduled (every 5 minutes)\")
+-        print(\"DEBUG: Scheduler started\")
++        logger.debug(\"Scheduler started\")
+         yield
+-        print(\"DEBUG: Yield returned\")
++        logger.debug(\"Yield returned\")
+         scheduler.shutdown()
+     except Exception as e:
+-        print(f\"DEBUG: Lifespan error: {e}\")
+-        import traceback
+-        traceback.print_exc()
++        logger.exception(f\"Lifespan error: {e}\")
+         raise
+
+ app = FastAPI(title=\"Omega KG Capture Server\", lifespan=lifespan)
+--
+2.45.0
+
+# To apply these patches:
+# git apply scripts/p0_fixes.patch
+#
+# Or apply individually:
+# git apply scripts/p0_fixes.patch --include="**/smart_parser.py"
+# git apply scripts/p0_fixes.patch --include="**/linear_sync.py"
+# ...etc

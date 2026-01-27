@@ -1,0 +1,51 @@
+---
+name: agent_context_template
+description: "Complete agent context bullet template for ApexSigma sessions"
+version: "1.0"
+includes:
+  - mission_brief
+  - project_status
+  - critical_blocker
+  - priority_tasks
+---
+
+# ApexSigma Agent Context Bullet
+
+**Generated**: {{ timestamp }}  
+**Session ID**: {{ session_id | default("AUTO") }}  
+**Version**: {{ version | default("1.0") }}
+
+---
+
+{{ include('mission_brief', mission_brief) }}
+
+---
+
+{{ include('project_status', projects=project_status) }}
+
+---
+
+{{ include('critical_blocker', blocker=critical_blocker) }}
+
+---
+
+{{ include('priority_tasks', priorities=immediate_priorities) }}
+
+---
+
+## Development Context
+
+**Environment**: {{ environment | default("Local Development") }}  
+**Tools Active**: {{ active_tools | default(["Docker", "Poetry", "Claude Code"]) | join(", ") }}  
+**Network Status**: {{ network_status | default("Pending Verification") }}
+
+## Success Metrics
+
+- [ ] Critical blockers resolved
+- [ ] High-priority tasks advanced
+- [ ] Integration tests passing
+- [ ] Documentation updated
+
+---
+
+*This context bullet was automatically generated using POML templates and real-time project data.*

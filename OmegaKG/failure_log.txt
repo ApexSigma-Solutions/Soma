@@ -1,0 +1,207 @@
+============================= test session starts =============================
+collecting ... 
+----------------------------- live log collection -----------------------------
+INFO     omega_kg.settings:settings.py:73 BWS_ACCESS_TOKEN found, attempting Bitwarden authentication
+INFO     omega_kg.settings:settings.py:83 Bitwarden authentication successful: ResponseForAccessTokenLoginResponse(success=True, data=AccessTokenLoginResponse(authenticated=True, force_password_reset=False, reset_master_password=False, two_factor=None), error_message=None)
+WARNING  omega_kg.settings:settings.py:126 Secret not found in Bitwarden for key 'gemini_api_key' (UUID: dedaca13-3dfa-483f-a5aa-b3c701503c91) - will use fallback
+INFO     omega_kg.settings:settings.py:148 Bitwarden secrets loaded for keys: extension_api_key, jwt_secret_key, linear_api_key, linear_webhook_secret, nanogpt_api_key, neo4j_password, perplexity_api_key, postgres_password
+INFO     omega_kg.vault_utils:vault_utils.py:65 VaultUtils initialized. Vault path: test_vault
+INFO     omega_kg.linear_sync:linear_sync.py:94 LinearSync initialized with vault: test_vault
+collected 18 items
+
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_missing_token_returns_401 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 403 Forbidden"
+FAILED                                                                   [  5%]
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_invalid_token_returns_401 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 11%]
+tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_valid_token_accepted 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 16%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_content_rejected 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 22%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_short_content_rejected 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 27%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_invalid_embedding_dimension_rejected 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 33%]
+tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_title_rejected 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 38%]
+tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_duplicate_source_id_detected 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 44%]
+tests/integration/test_validation_api.py::TestValidationAPIDeduplication::test_different_source_ids_accepted 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 50%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_successful_storage_returns_node_ids 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+PASSED                                                                   [ 55%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_rollback_on_vector_failure SKIPPED [ 61%]
+tests/integration/test_validation_api.py::TestValidationAPIAtomicTransactions::test_rollback_on_neo4j_failure SKIPPED [ 66%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_conversation_digest_accepted 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 72%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_terminal_event_digest_accepted 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 77%]
+tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_linear_issue_digest_accepted 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 83%]
+tests/integration/test_validation_api.py::TestValidationAPIHealthCheck::test_health_endpoint_accessible 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/validate/health "HTTP/1.1 200 OK"
+PASSED                                                                   [ 88%]
+tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_full_validation_workflow 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [ 94%]
+tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_validation_api_handles_concurrent_requests 
+-------------------------------- live log call --------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+FAILED                                                                   [100%]
+
+================================== FAILURES ===================================
+_______ TestValidationAPIAuthentication.test_missing_token_returns_401 ________
+tests\integration\test_validation_api.py:59: in test_missing_token_returns_401
+    assert response.status_code == 401
+E   assert 403 == 401
+E    +  where 403 = <Response [403 Forbidden]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 403 Forbidden"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 403 Forbidden"
+__________ TestValidationAPIAuthentication.test_valid_token_accepted __________
+tests\integration\test_validation_api.py:87: in test_valid_token_accepted
+    assert response.status_code in [200, 409]  # 200 accepted or 409 duplicate
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 401 in [200, 409]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+_________ TestValidationAPIQualityChecks.test_empty_content_rejected __________
+tests\integration\test_validation_api.py:107: in test_empty_content_rejected
+    assert response.status_code in [
+E   assert 401 in [200, 422]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+__ TestValidationAPIQualityChecks.test_invalid_embedding_dimension_rejected ___
+tests\integration\test_validation_api.py:149: in test_invalid_embedding_dimension_rejected
+    assert response.status_code == 422  # Pydantic validation error
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 401 == 422
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+__________ TestValidationAPIQualityChecks.test_empty_title_rejected ___________
+tests\integration\test_validation_api.py:165: in test_empty_title_rejected
+    assert response.status_code in [200, 422]
+E   assert 401 in [200, 422]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+_______ TestValidationAPIDigestTypes.test_conversation_digest_accepted ________
+tests\integration\test_validation_api.py:287: in test_conversation_digest_accepted
+    assert response.status_code in [200, 409]
+E   assert 401 in [200, 409]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+______ TestValidationAPIDigestTypes.test_terminal_event_digest_accepted _______
+tests\integration\test_validation_api.py:306: in test_terminal_event_digest_accepted
+    assert response.status_code in [200, 409]
+E   assert 401 in [200, 409]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+_______ TestValidationAPIDigestTypes.test_linear_issue_digest_accepted ________
+tests\integration\test_validation_api.py:324: in test_linear_issue_digest_accepted
+    assert response.status_code in [200, 409]
+E   assert 401 in [200, 409]
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+___________ TestValidationAPIEndToEnd.test_full_validation_workflow ___________
+tests\integration\test_validation_api.py:360: in test_full_validation_workflow
+    assert response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+__ TestValidationAPIEndToEnd.test_validation_api_handles_concurrent_requests __
+tests\integration\test_validation_api.py:398: in test_validation_api_handles_concurrent_requests
+    assert response.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+---------------------------- Captured stderr call -----------------------------
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/validate/validate-and-store "HTTP/1.1 401 Unauthorized"
+=========================== short test summary info ===========================
+FAILED tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_missing_token_returns_401 - assert 403 == 401
+ +  where 403 = <Response [403 Forbidden]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIAuthentication::test_valid_token_accepted - assert 401 in [200, 409]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_content_rejected - assert 401 in [200, 422]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_invalid_embedding_dimension_rejected - assert 401 == 422
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIQualityChecks::test_empty_title_rejected - assert 401 in [200, 422]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_conversation_digest_accepted - assert 401 in [200, 409]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_terminal_event_digest_accepted - assert 401 in [200, 409]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIDigestTypes::test_linear_issue_digest_accepted - assert 401 in [200, 409]
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_full_validation_workflow - assert 401 == 200
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+FAILED tests/integration/test_validation_api.py::TestValidationAPIEndToEnd::test_validation_api_handles_concurrent_requests - assert 401 == 200
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+=================== 10 failed, 6 passed, 2 skipped in 6.26s ===================

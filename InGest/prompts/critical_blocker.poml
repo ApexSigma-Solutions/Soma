@@ -1,0 +1,15 @@
+---
+name: critical_blocker
+description: "Critical blocker component for highlighting urgent issues"
+version: "1.0"
+---
+
+{% if blocker %}
+## ⚠️ Critical Blocker
+
+**Issue**: {{ blocker.issue }}  
+**Impact**: {{ blocker.impact }}  
+**Status**: {{ blocker.status }}
+{% if blocker.solution %}**Solution**: {{ blocker.solution }}{% endif %}
+{% if blocker.eta %}**ETA**: {{ blocker.eta }}{% endif %}
+{% endif %}

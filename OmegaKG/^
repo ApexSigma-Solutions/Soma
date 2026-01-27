@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "D:\projects\Soma\OmegaKG\omega_kg\capture_server.py", line 40, in <module>
+    from InGest.src.ingest_llm_as.db_models.raw_ingestion import RawIngestion
+ModuleNotFoundError: No module named 'InGest'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\projects\Soma\OmegaKG\omega_kg\capture_server.py", line 43, in <module>
+    logger.error("InGest RawIngestion model not available. Check InGest module.")
+    ^^^^^^
+NameError: name 'logger' is not defined

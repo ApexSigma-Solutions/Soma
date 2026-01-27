@@ -1,0 +1,22 @@
+{
+  "graphParser": {
+    "endpoint": "http://localhost:8000/graph/parse",
+    "healthEndpoint": "http://localhost:8000/graph/health",
+    "timeouts": {
+      "small": 5000,
+      "medium": 15000,
+      "large": 30000,
+      "extraLarge": 60000
+    },
+    "documentSizeThresholds": {
+      "small": 1000,
+      "medium": 10000,
+      "large": 50000
+    },
+    "recommendations": {
+      "maxSafeSize": 10000,
+      "chunkSize": 50000,
+      "defaultTimeout": 30000
+    }
+  }
+}

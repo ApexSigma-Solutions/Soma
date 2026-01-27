@@ -1,0 +1,51 @@
+============================= test session starts =============================
+collecting ... 
+----------------------------- live log collection -----------------------------
+INFO     omega_kg.settings:settings.py:73 BWS_ACCESS_TOKEN found, attempting Bitwarden authentication
+INFO     omega_kg.settings:settings.py:83 Bitwarden authentication successful: ResponseForAccessTokenLoginResponse(success=True, data=AccessTokenLoginResponse(authenticated=True, force_password_reset=False, reset_master_password=False, two_factor=None), error_message=None)
+WARNING  omega_kg.settings:settings.py:126 Secret not found in Bitwarden for key 'gemini_api_key' (UUID: dedaca13-3dfa-483f-a5aa-b3c701503c91) - will use fallback
+INFO     omega_kg.settings:settings.py:148 Bitwarden secrets loaded for keys: extension_api_key, jwt_secret_key, linear_api_key, linear_webhook_secret, nanogpt_api_key, neo4j_password, perplexity_api_key, postgres_password
+INFO     omega_kg.vault_utils:vault_utils.py:65 VaultUtils initialized. Vault path: test_vault
+INFO     omega_kg.linear_sync:linear_sync.py:94 LinearSync initialized with vault: test_vault
+collected 0 items / 1 error
+
+=================================== ERRORS ====================================
+__________ ERROR collecting tests/integration/test_validation_api.py __________
+ImportError while importing test module 'D:\projects\ApexSigma DevAI\OmegaKG\tests\integration\test_validation_api.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+.venv\Lib\site-packages\_pytest\python.py:507: in importtestmodule
+    mod = import_path(
+.venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Users\Sean Steyn\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+.venv\Lib\site-packages\_pytest\assertion\rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+tests\integration\test_validation_api.py:13: in <module>
+    from omega_kg.capture_server import app
+omega_kg\capture_server.py:728: in <module>
+    from omega_kg.routers.validation import router as validation_router
+omega_kg\routers\validation.py:15: in <module>
+    from ..models.validation import (
+E   ImportError: cannot import name 'KnowledgeDigest' from 'omega_kg.models.validation' (D:\projects\ApexSigma DevAI\OmegaKG\omega_kg\models\validation.py)
+------------------------------- Captured stderr -------------------------------
+INFO:omega_kg.settings:BWS_ACCESS_TOKEN found, attempting Bitwarden authentication
+INFO:omega_kg.settings:Bitwarden authentication successful: ResponseForAccessTokenLoginResponse(success=True, data=AccessTokenLoginResponse(authenticated=True, force_password_reset=False, reset_master_password=False, two_factor=None), error_message=None)
+WARNING:omega_kg.settings:Secret not found in Bitwarden for key 'gemini_api_key' (UUID: dedaca13-3dfa-483f-a5aa-b3c701503c91) - will use fallback
+INFO:omega_kg.settings:Bitwarden secrets loaded for keys: extension_api_key, jwt_secret_key, linear_api_key, linear_webhook_secret, nanogpt_api_key, neo4j_password, perplexity_api_key, postgres_password
+INFO:omega_kg.vault_utils:VaultUtils initialized. Vault path: test_vault
+INFO:omega_kg.linear_sync:LinearSync initialized with vault: test_vault
+=========================== short test summary info ===========================
+ERROR tests/integration/test_validation_api.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+============================== 1 error in 6.32s ===============================

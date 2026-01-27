@@ -1,0 +1,9 @@
+# Legacy backup directory
+#
+# This directory contains archived infrastructure and monitoring files
+# that have been replaced by the Omega Ingest Contract system.
+#
+# Files:
+# - Dockerfile: Original multi-stage Dockerfile for InGest-LLM.as
+# - prometheus.yml: Prometheus scrape configuration
+# - alert.rules: Alerting rules for embedding worker

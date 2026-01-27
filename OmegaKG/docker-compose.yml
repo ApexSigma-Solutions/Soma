@@ -1,0 +1,246 @@
+---
+# ApexSigma Network Definition
+# This network will be shared across all ApexSigma projects.
+networks:
+  apexsigma.net:
+    external: true
+    name: apexsigma.net
+
+# Persistent Data Volumes
+volumes:
+  # --- NEO4J VOLUMES ---
+  neo4j_data_stable:
+    external: true
+    name: apexsigma.neo4j.data.stable
+  neo4j_logs_stable:
+    external: true
+    name: apexsigma.neo4j.logs.stable
+  neo4j_data_dev:
+    name: apexsigma.neo4j.data.dev
+  neo4j_logs_dev:
+
+  # --- POSTGRES VOLUMES (STRICT ISOLATION) ---
+  # STABLE: Locked to the existing external volume
+  postgres_data_stable:
+    external: true
+    name: apexsigma.postgres.data.stable # Matches naming convention, ensure volume exists or rename
+  # DEV: Ephemeral / Managed by Compose
+  postgres_data_dev:
+    name: apexsigma.postgres.data.dev
+
+  # --- REDIS VOLUMES ---
+  redis_db:
+    external: true
+    name: apexsigma.redis.db
+
+services:
+  # --- NEO4J SERVICE (Dynamic) ---
+  neo4j:
+    image: neo4j:5-community
+    container_name: apexsigma.neo4j.${ENV_TYPE:-dev}
+    restart: unless-stopped
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    networks:
+      - apexsigma.net
+    volumes:
+      - neo4j_data_${ENV_TYPE:-dev}:/data
+      - neo4j_logs_${ENV_TYPE:-dev}:/logs
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_dbms_memory_heap_initial__size=${NEO4J_HEAP_SIZE:-512m}
+      - NEO4J_dbms_memory_heap_max__size=${NEO4J_HEAP_SIZE:-512m}
+      - NEO4J_PLUGINS=["apoc"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- POSTGRES SERVICE (Dynamic) ---
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: apexsigma.postgres.${ENV_TYPE:-dev}
+    restart: unless-stopped
+    ports:
+      # Default Stable: 5433, Dev: 5434 (Set via ENV)
+      - "${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - apexsigma.net
+    volumes:
+      # CRITICAL SEPARATION LOGIC
+      # Maps to either the locked external volume or the throwaway dev volume
+      - postgres_data_${ENV_TYPE:-dev}:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-omega_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omega_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-omega_kg}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omega_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- REDIS SERVICE ---
+  redis:
+    image: redis:7-alpine
+    container_name: apexsigma.redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - apexsigma.net
+    volumes:
+      - redis_db:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- CONSUMER SERVICES ---
+
+  # Omega_KG Capture Service
+  omega-kg:
+    build: .
+    container_name: apexsigma.omega.kg
+    restart: "no"
+    ports:
+      - "8765:8765"
+    networks:
+      - apexsigma.net
+    volumes:
+      - "${OBSIDIAN_VAULT_PATH}:/vault:ro"
+    env_file:
+      - .env
+    environment:
+      NEO4J_URI: ${NEO4J_URI_DOCKER:-bolt://neo4j:7687}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    profiles:
+      - lifecycle
+
+  # Omega_KG Capture Server (FastAPI)
+  capture-server:
+    build: .
+    container_name: apexsigma.capture.server
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    networks:
+      - apexsigma.net
+    volumes:
+      - "${OBSIDIAN_VAULT_PATH}:/vault:ro"
+    env_file:
+      - .env
+    environment:
+      - NEO4J_URI=${NEO4J_URI_DOCKER:-bolt://neo4j:7687}
+      - POSTGRES_SERVER=${POSTGRES_SERVER_DOCKER:-postgres} # Points to dynamic service
+      - POSTGRES_PORT=${POSTGRES_PORT_DOCKER:-5432}
+      - REDIS_HOST=${REDIS_HOST_DOCKER:-redis} # Points to dynamic service
+      - REDIS_PORT=${REDIS_PORT_DOCKER:-6379}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: [""]
+    command: ["python", "-c", "from omega_kg.capture_server import main; main()"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  capture-server-dev:
+    build: .
+    container_name: ${CAPTURE_SERVER_DEV_CONTAINER_NAME:-apexsigma.capture.server.dev}
+    restart: unless-stopped
+    ports:
+      - "${CAPTURE_SERVER_DEV_HOST_PORT:-8766}:8765"
+    networks:
+      - apexsigma.net
+    volumes:
+      - "${OBSIDIAN_VAULT_PATH}:/vault:ro"
+    env_file:
+      - .env
+    environment:
+      - NEO4J_URI=${NEO4J_URI_DOCKER_DEV:-bolt://neo4j:7687}
+      - POSTGRES_SERVER=${POSTGRES_SERVER_DOCKER_DEV:-postgres} # Points to dynamic service
+      - POSTGRES_PORT=${POSTGRES_PORT_DOCKER_DEV:-5432}
+      - REDIS_HOST=${REDIS_HOST_DOCKER_DEV:-redis} # Points to dynamic service
+      - REDIS_PORT=${REDIS_PORT_DOCKER_DEV:-6379}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: [""]
+    command: ["python", "-c", "from omega_kg.capture_server import main; main()"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - dev
+
+  # Quipu Ollama Heartbeat Monitor
+  quipu-heartbeat:
+    build: .
+    container_name: apexsigma.quipu.heartbeat
+    restart: unless-stopped
+    networks:
+      - apexsigma.net
+    volumes:
+      - "${OBSIDIAN_VAULT_PATH}:/vault:ro"
+    env_file:
+      - .env
+    environment:
+      - NEO4J_URI=${NEO4J_URI_DOCKER:-bolt://neo4j:7687}
+      - POSTGRES_SERVER=${POSTGRES_SERVER_DOCKER:-postgres} # Points to dynamic service
+      - POSTGRES_PORT=${POSTGRES_PORT_DOCKER:-5432}
+      - REDIS_HOST=${REDIS_HOST_DOCKER:-redis} # Points to dynamic service
+      - REDIS_PORT=${REDIS_PORT_DOCKER:-6379}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: [""]
+    command: ["python", "-c", "import asyncio; from omega_kg.quipu_ollama_heartbeat import run_heartbeat_loop; asyncio.run(run_heartbeat_loop())"]
+
+  quipu-heartbeat-dev:
+    build: .
+    container_name: ${QUIPU_HEARTBEAT_DEV_CONTAINER_NAME:-apexsigma.quipu.heartbeat.dev}
+    restart: unless-stopped
+    networks:
+      - apexsigma.net
+    volumes:
+      - "${OBSIDIAN_VAULT_PATH}:/vault:ro"
+    env_file:
+      - .env
+    environment:
+      - NEO4J_URI=${NEO4J_URI_DOCKER_DEV:-bolt://neo4j:7687}
+      - POSTGRES_SERVER=${POSTGRES_SERVER_DOCKER_DEV:-postgres} # Points to dynamic service
+      - POSTGRES_PORT=${POSTGRES_PORT_DOCKER_DEV:-5432}
+      - REDIS_HOST=${REDIS_HOST_DOCKER_DEV:-redis} # Points to dynamic service
+      - REDIS_PORT=${REDIS_PORT_DOCKER_DEV:-6379}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: [""]
+    command: ["python", "-c", "import asyncio; from omega_kg.quipu_ollama_heartbeat import run_heartbeat_loop; asyncio.run(run_heartbeat_loop())"]
+    profiles:
+      - dev
