@@ -12,7 +12,8 @@ import {
   LogOut,
   Cpu,
   Power,
-  RotateCcw
+  RotateCcw,
+  Brain
 } from 'lucide-react';
 import { SystemHUD } from '@/components/common/SystemHUD';
 import { useSystemStore } from '@/lib/store/systemStore';
@@ -31,6 +32,7 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '#dashboard' },
+  { name: 'Cortex Bridge', icon: Brain, href: '#cortex' },
   { name: 'Omega API', icon: Activity, href: '#omega' },
   { name: 'InGest API', icon: Database, href: '#ingest' },
   { name: 'Memos API', icon: FileText, href: '#memos' },

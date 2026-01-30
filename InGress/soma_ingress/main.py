@@ -5,6 +5,7 @@ and buffers it into a Postgres raw_lake table. Also provides Interoception
 (System Vitals) via psutil.
 """
 
+import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
@@ -12,15 +13,25 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 import asyncpg
 import psutil
+import redis.asyncio as redis
 import structlog
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
 
 # --- Configuration ---
-API_KEY = os.getenv("SOMA_INGRESS_KEY", "sigma-dev-secret-key")
-DB_DSN = os.getenv("SOMA_PG_DSN", "postgresql://omega_user:omega_dev_password@localhost:6000/soma_sensory_lake")
+API_KEY = os.getenv("SOMA_INGRESS_KEY")
+DB_DSN = os.getenv("SOMA_PG_DSN")
 PORT = int(os.getenv("SOMA_INGRESS_PORT", "8000"))
 HOST = "0.0.0.0"
+
+# Validate required environment variables
+if not API_KEY:
+    raise RuntimeError(
+        "SOMA_INGRESS_KEY environment variable is required. Run: $env:SOMA_INGRESS_KEY='your-secure-key'"
+    )
+if not DB_DSN:
+    raise RuntimeError("SOMA_PG_DSN environment variable is required. Run: $env:SOMA_PG_DSN='postgresql://...'")
 
 structlog.configure(
     processors=[
@@ -177,6 +188,93 @@ async def ingest_terminal(request: Request, x_api_key: Optional[str] = Header(No
         "status": "captured",
         "ref": await persist_to_lake("terminal", "command_log", await request.json(), request.client.host),
     }
+
+
+# =============================================================================
+# Manual Ingestion (Agent/Test Interface)
+# =============================================================================
+@app.post("/api/v1/manual/ingest")
+async def manual_ingest(request: Request, x_api_key: Optional[str] = Header(None)) -> Dict[str, str]:
+    """Manual JSON ingestion for agent/test use.
+
+    Accepts arbitrary JSON payloads and persists them to the raw_lake table.
+    Used by memOS ingest_signal tool and for E2E testing.
+
+    Expected body format:
+    {
+        "source": "manual",  # optional, defaults to "manual"
+        "event_type": "agent_thought",  # optional, defaults to "agent_thought"
+        "payload": { ... }  # the actual data to store
+    }
+    """
+    if x_api_key != API_KEY:
+        raise HTTPException(401, "Unauthorized")
+
+    body = await request.json()
+    source = body.get("source", "manual")
+    event_type = body.get("event_type", "agent_thought")
+    payload = body.get("payload", body)  # Use entire body if no payload key
+
+    log.info("manual_ingestion", source=source, event_type=event_type)
+
+    return {
+        "status": "captured",
+        "ref": await persist_to_lake(source, event_type, payload, request.client.host),
+    }
+
+
+# =============================================================================
+# Neural Telemetry Stream (SSE)
+# =============================================================================
+@app.get("/api/v1/telemetry/stream")
+async def stream_neural_pulse(request: Request) -> EventSourceResponse:
+    """Broadcasts the Redis soma_working_memory stream to the Cortex Bridge UI.
+
+    Streams real-time digestion events from the Stomach layer to the dashboard.
+    Uses Server-Sent Events (SSE) for persistent connection.
+    """
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6380/0"), decode_responses=True)
+
+        try:
+            last_id = "$"  # Start from now (newest messages)
+
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    log.info("telemetry_client_disconnected")
+                    break
+
+                # Read from working memory stream
+                data = await redis_client.xread(
+                    {"soma_working_memory": last_id},
+                    count=1,
+                    block=1000,  # Block for 1 second
+                )
+
+                if data:
+                    for stream_name, messages in data:
+                        for msg_id, payload in messages:
+                            # Extract the digest payload
+                            if "payload" in payload:
+                                event_data = json.dumps(payload)
+                                yield f"data: {event_data}\n\n"
+                                last_id = msg_id
+                                log.info("telemetry_pulse_sent", msg_id=msg_id)
+                else:
+                    # Send keep-alive ping
+                    yield ": ping\n\n"
+
+                await asyncio.sleep(0.1)
+
+        except Exception as e:
+            log.error("telemetry_stream_error", error=str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            await redis_client.close()
+
+    return EventSourceResponse(event_generator())
 
 
 if __name__ == "__main__":

@@ -35,6 +35,11 @@ export const API_CONFIGS: ApiConfig[] = [
     baseUrl: '/api/ingest',
     port: 8766,
   },
+  {
+    name: 'InGress',
+    baseUrl: '/api/ingress',
+    port: 8000,
+  },
 ];
 
 import { useAuthStore } from '@/lib/store/useAuthStore';
@@ -143,6 +148,7 @@ export const omegaClient = new ApiClient(API_CONFIGS[0]);
 export const ingestClient = new ApiClient(API_CONFIGS[1]);
 export const memosClient = new ApiClient(API_CONFIGS[2]);
 export const graphParserClient = new ApiClient(API_CONFIGS[3]);
+export const ingressClient = new ApiClient(API_CONFIGS[4]);
 
 export interface CaptureResponse {
   success: boolean;
@@ -358,4 +364,57 @@ export const memosApi = {
     
     // Mirmir
     consultMirmir: (query: string) => memosClient.post<MirmirResponse>('/mirmir/consult', { query }),
+};
+
+// =============================================================================
+// InGress (Senses Layer) API
+// =============================================================================
+export interface IngressResponse {
+  status: string;
+  ref: string;  // UUID of raw_lake record
+}
+
+export interface SensationPayload {
+  source?: string;
+  event_type?: string;
+  payload: {
+    content: string;
+    timestamp?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+export interface IngressVitals {
+  cpu: {
+    percent: number;
+    cores: number;
+  };
+  memory: {
+    percent: number;
+    available_mb: number;
+  };
+  disk: {
+    percent: number;
+    free_gb: number;
+  };
+}
+
+export const ingressApi = {
+  // Manual ingestion endpoint
+  manualIngest: (payload: SensationPayload) => 
+    ingressClient.post<IngressResponse>('/api/v1/manual/ingest', payload, {
+      headers: {
+        'X-Api-Key': 'sigma-dev-secret-key'
+      }
+    }),
+  
+  // Health check
+  getHealth: () => ingressClient.get<{role: string, status: string}>('/health'),
+  
+  // System vitals (interoception)
+  getVitals: () => ingressClient.get<IngressVitals>('/api/v1/system/vitals', {
+    headers: {
+      'X-Api-Key': 'sigma-dev-secret-key'
+    }
+  }),
 };

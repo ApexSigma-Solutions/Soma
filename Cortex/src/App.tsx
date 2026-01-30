@@ -11,6 +11,7 @@ const Dashboard = lazy(() => import('@/components/Dashboard').then(module => ({ 
 const CaptureControl = lazy(() => import('@/components/features/capture/CaptureControl').then(module => ({ default: module.CaptureControl })));
 const IngestControl = lazy(() => import('@/components/features/ingest/IngestControl').then(module => ({ default: module.IngestControl })));
 const MemosControl = lazy(() => import('@/components/features/memos/MemosControl').then(module => ({ default: module.MemosControl })));
+const CortexBridge = lazy(() => import('@/components/pages/CortexBridge').then(module => ({ default: module.CortexBridge })));
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
 
 export default App;
@@ -73,6 +74,8 @@ function App() {
                 return <IngestControl />;
             case 'memos':
                 return <MemosControl />;
+            case 'cortex':
+                return <CortexBridge />;
             case 'settings':
                 return <SettingsPage />;
             case 'dashboard':

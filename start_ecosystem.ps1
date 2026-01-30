@@ -1,678 +1,774 @@
 # =============================================================================
-# OmegaKG Ecosystem Master Launcher
+# Soma Ecosystem Master Launcher v2.0
 # =============================================================================
-# Purpose: Orchestrates ALL services across the OmegaKG ecosystem
-# Usage:
-#   .\start_ecosystem.ps1                     -> Production (Hidden Windows)
-#   .\start_ecosystem.ps1 -ShowConsole       -> Debugging (Visible Windows)
-#   .\start_ecosystem.ps1 -Persistent        -> Keep all services alive with watchdog
-#   .\start_ecosystem.ps1 -ShowConsole -Persistent -> Debug + Watchdog
+# Purpose: Orchestrates ALL services across the Soma ecosystem
+# Features:
+#   - Intelligent error handling with retry logic
+#   - Health check verification before service startup
+#   - Alembic migrations for all services
+#   - Poetry with pip fallback for TLS issues
+#   - Proper API contract validation
+#   - Dashboard/Control Room loading
 #
-# Services Started:
-#   - memOS.MCP Server (Port 8768)
-#   - Redis (Port 6379)
-#   - OmegaKG Capture Server (Port 8765)
-#   - OmegaKG Embedding Worker
-#   - OmegaKG Vector Index Worker
-#   - InGest-LLM.as API Server (Port 8766)
-#   - InGest-LLM.as Cloudflared Tunnel
-#   - CortexBridge Frontend (Port 5173/5174)
+# Usage:
+#   .\start_ecosystem.ps1                      -> Production (Hidden Windows)
+#   .\start_ecosystem.ps1 -ShowConsole        -> Debugging (Visible Windows)
+#   .\start_ecosystem.ps1 -Persistent         -> Keep all services alive with watchdog
+#   .\start_ecosystem.ps1 -SkipMigrations     -> Skip database migrations
+#   .\start_ecosystem.ps1 -SkipContracts       -> Skip API contract validation
 # =============================================================================
-
 param (
     [string]$ProjectRoot = $PSScriptRoot,
     [switch]$ShowConsole,
     [switch]$Persistent,
     [switch]$SkipCleanup,
+    [switch]$SkipMigrations,
+    [switch]$SkipContracts,
+    [switch]$SkipInfrastructure,
     [switch]$SkipMemOS,
     [switch]$SkipOmegaKG,
-    [switch]$SkipIngestLLM,
-    [switch]$SkipCortexBridge
+    [switch]$SkipIngest,
+    [switch]$SkipIngress,
+    [switch]$SkipCortex
 )
 
 $ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
-# --- 0. ENVIRONMENT SETUP ---
-$env:PYTHONUTF8 = "1"
+$global:ServicesStarted = @{}
+$global:ServicesFailed = @{}
 
-
-# --- 1. SETUP LOGGING ---
-$LogDir = Join-Path $ProjectRoot "logs"
-if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
-
-$Time = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$MasterLog = Join-Path $LogDir "ecosystem_$Time.log"
-
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
+function Write-ColorLog {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO",
+        [string]$Color = "White"
+    )
     $Timestamp = Get-Date -Format "HH:mm:ss"
     $LogMessage = "[$Timestamp] [$Level] $Message"
-    Write-Output $LogMessage
-    Add-Content -Path $MasterLog -Value $LogMessage
+    Write-Host $LogMessage -ForegroundColor $Color
+    
+    $GlobalLogPath = Join-Path $ProjectRoot "logs"
+    if (-not (Test-Path $GlobalLogPath)) {
+        New-Item -ItemType Directory -Path $GlobalLogPath -Force | Out-Null
+    }
+    $MasterLog = Join-Path $GlobalLogPath "ecosystem_$(Get-Date -Format 'yyyy-MM-dd').log"
+    Add-Content -Path $MasterLog -Value $LogMessage -Encoding UTF8
 }
 
-$WindowStyle = if ($ShowConsole) { "Normal" } else { "Hidden" }
+function Write-Success { param($Message) Write-ColorLog -Message $Message -Level "SUCCESS" -Color "Green" }
+function Write-ErrorLog { param($Message) Write-ColorLog -Message $Message -Level "ERROR" -Color "Red" }
+function Write-WarnLog { param($Message) Write-ColorLog -Message $Message -Level "WARN" -Color "Yellow" }
+function Write-InfoLog { param($Message) Write-ColorLog -Message $Message -Level "INFO" -Color "Cyan" }
 
-Write-Log "========================================" "INFO"
-Write-Log "OmegaKG Ecosystem Startup" "INFO"
-Write-Log "========================================" "INFO"
-Write-Log "Mode: $(if ($ShowConsole) { 'DEBUG (Visible Windows)' } else { 'PRODUCTION (Hidden)' })"
-Write-Log "Watchdog: $(if ($Persistent) { 'ENABLED' } else { 'DISABLED' })"
-Write-Log "Master Log: $MasterLog"
-Write-Log ""
-
-# --- 1B. HELPER FUNCTIONS ---
-function Clean-Networking {
-    Write-Log "Resetting Windows NAT Driver (fixes port exclusions)..." "WARN"
+function Test-Port {
+    param(
+        [int]$Port,
+        [int]$Timeout = 5
+    )
     try {
-        # Check for Admin privileges by attempting a privileged command
-        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        $connect = $tcp.BeginConnect("localhost", $Port, $null, $null)
+        $wait = $connect.AsyncWaitHandle.WaitOne($Timeout * 1000, $false)
         
-        if ($isAdmin) {
-            Start-Process net -ArgumentList "stop winnat" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-            Start-Process net -ArgumentList "start winnat" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-            Write-Log "Windows NAT Driver reset complete." "INFO"
-        } else {
-             Write-Log "Skipping WINNAT reset (Requires Administrator privileges)." "WARN"
+        if ($wait) {
+            $tcp.EndConnect($connect)
+            $tcp.Close()
+            return $true
         }
+        $tcp.Close()
+        return $false
     } catch {
-        Write-Log "Failed to reset WINNAT: $($_.Exception.Message)" "ERROR"
+        return $false
     }
 }
 
-function Kill-TargetProcess {
-    param([string]$Pattern, [string]$Name="Process")
+function Get-PoetryOrPip {
+    param([string]$ServicePath)
     
-    $Procs = Get-CimInstance Win32_Process -Filter "Name like '%python%' OR Name like '%node%' OR Name like '%cloudflared%'" | Where-Object { 
-        $_.CommandLine -like "*$Pattern*" 
+    $PoetryCommand = Get-Command poetry -ErrorAction SilentlyContinue
+    $SystemPython = "C:\Program Files\Python312\python.exe"
+    
+    if ($PoetryCommand) {
+        Write-InfoLog "Using Poetry for $ServicePath"
+        return @{
+            Executor = $PoetryCommand.Source
+            UsePoetry = $true
+        }
+    } elseif (Test-Path $SystemPython) {
+        Write-InfoLog "Using System Python for $ServicePath"
+        return @{
+            Executor = $SystemPython
+            UsePoetry = $false
+        }
+    } else {
+        Write-WarnLog "Poetry and System Python not found, trying 'python' command"
+        return @{
+            Executor = "python"
+            UsePoetry = $false
+        }
+    }
+}
+
+function Install-WithFallback {
+    param(
+        [string]$Package,
+        [string]$ServicePath
+    )
+    
+    $ExecutorInfo = Get-PoetryOrPip -ServicePath $ServicePath
+    
+    if ($ExecutorInfo.UsePoetry) {
+        try {
+            Write-InfoLog "Installing $Package with Poetry..."
+            $result = Start-Process -FilePath $ExecutorInfo.Executor `
+                -ArgumentList "add $Package" `
+                -WorkingDirectory $ServicePath `
+                -Wait -NoNewWindow -PassThru
+            return $result.ExitCode -eq 0
+        } catch {
+            Write-WarnLog "Poetry install failed for $Package, trying pip with trusted hosts..."
+            return Install-PipWithTrustedHosts -Package $Package
+        }
+    } else {
+        return Install-PipWithTrustedHosts -Package $Package
+    }
+}
+
+function Install-PipWithTrustedHosts {
+    param([string]$Package)
+    
+    try {
+        Write-InfoLog "Installing $Package with pip (trusted hosts)..."
+        $result = Start-Process -FilePath "pip" `
+            -ArgumentList "install --trusted-host pypi.org --trusted-host files.pythonhosted.org $Package" `
+            -Wait -NoNewWindow -PassThru
+        return $result.ExitCode -eq 0
+    } catch {
+        Write-ErrorLog "Failed to install $Package with pip"
+        return $false
+    }
+}
+
+function Invoke-ServiceHealthCheck {
+    param(
+        [string]$ServiceName,
+        [int]$Port,
+        [string]$Path = "/health",
+        [int]$MaxRetries = 30,
+        [int]$RetryInterval = 2
+    )
+    
+    Write-InfoLog "Checking $ServiceName health on port $Port..."
+    
+    $attempt = 0
+    while ($attempt -lt $MaxRetries) {
+        $attempt++
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:$Port$Path" `
+                -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+            
+            if ($response.StatusCode -eq 200) {
+                Write-Success "$ServiceName is healthy!"
+                return $true
+            }
+        } catch {
+            Write-WarnLog "Attempt $attempt/$MaxRetries: $ServiceName not ready yet..."
+        }
+        
+        Start-Sleep -Seconds $RetryInterval
+    }
+    
+    Write-ErrorLog "$ServiceName failed health check after $MaxRetries attempts"
+    return $false
+}
+
+function Stop-ServiceProcesses {
+    param([string]$Pattern, [string]$ServiceName)
+    
+    $Procs = Get-CimInstance Win32_Process -Filter "Name like '%python%' OR Name like '%node%'" | Where-Object {
+        $_.CommandLine -like "*$Pattern*"
     }
     
     foreach ($p in $Procs) {
         try {
-            Write-Log "  [Cleanup] Killing $Name (PID: $($p.ProcessId))..." "WARN"
+            Write-InfoLog "Stopping $ServiceName (PID: $($p.ProcessId))..."
             Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
         } catch {
-            Write-Log "  [Cleanup] Failed to kill PID $($p.ProcessId): $($_.Exception.Message)" "WARN"
+            Write-WarnLog "Failed to stop $ServiceName PID $($p.ProcessId): $($_.Exception.Message)"
         }
     }
 }
 
-function Cleanup-Everything {
-    Write-Log "Performing Pre-flight Cleanup..." "INFO"
+function Initialize-Databases {
+    param([switch]$SkipMigrations)
     
-    # 0. Networking (Port Exclusions)
-    Clean-Networking
-
-    # 1. memOS.MCP
-    Kill-TargetProcess "memos_mcp" "memOS.MCP"
+    Write-InfoLog "========================================"
+    Write-InfoLog "Initializing Databases"
+    Write-InfoLog "========================================"
     
-    # 2. OmegaKG Capture
-    Kill-TargetProcess "omega_kg.capture_server" "OmegaKG Capture"
-    
-    # 3. Workers
-    Kill-TargetProcess "omega_kg.workers" "OmegaKG Worker"
-    
-    # 4. InGest-LLM
-    Kill-TargetProcess "ingest_llm_as" "InGest-LLM"
-    
-    # 5. CortexBridge (Node/Vite)
-    # Note: Node often spawns children, we try to catch the main vite process
-    Kill-TargetProcess "vite" "CortexBridge (Vite)"
-    
-    # 6. Cloudflared
-    Kill-TargetProcess "valhalla-gateway" "Cloudflared"
-    
-    Write-Log "Cleanup complete." "INFO"
-    Write-Log ""
-}
-
-# --- 1C. EXECUTE CLEANUP ---
-if (-not $SkipCleanup) {
-    Cleanup-Everything
-} else {
-    Write-Log "Skipping Cleanup (-SkipCleanup active)" "INFO"
-}
-
-# --- 2. CHECK PREREQUISITES ---
-Write-Log "Checking prerequisites..." "INFO"
-
-# Check Redis
-try {
-    $redisTest = Test-NetConnection -ComputerName localhost -Port 6380 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-    if ($redisTest.TcpTestSucceeded) {
-        Write-Log "  ✅ Redis running on port 6380" "INFO"
-    } else {
-        Write-Log "  ❌ Redis not running - Starting..." "WARN"
-        docker start apexsigma.redis 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "  Starting new Redis container..." "INFO"
-            docker run -d -p 6380:6379 --name apexsigma.redis redis:7-alpine | Out-Null
+    $databases = @{
+        "PostgreSQL" = @{
+            "Port" = 6000
+            "Container" = "apexsigma.postgres.stable"
+            "HealthCheck" = { docker exec apexsigma.postgres.stable pg_isready -U omega_user }
         }
-        Start-Sleep -Seconds 2
-        Write-Log "  ✅ Redis started" "INFO"
+        "Neo4j" = @{
+            "Port" = 7687
+            "Container" = "apexsigma.neo4j.stable"
+            "HealthCheck" = { Test-Port -Port 7474 }
+        }
+        "Redis" = @{
+            "Port" = 6380
+            "Container" = "apexsigma.redis"
+            "HealthCheck" = { docker exec apexsigma.redis redis-cli ping }
+        }
     }
-} catch {
-    Write-Log "  ⚠️  Could not verify Redis status" "WARN"
-}
-
-# Check PostgreSQL
-try {
-    $pgTest = Test-NetConnection -ComputerName localhost -Port 6000 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-    if ($pgTest.TcpTestSucceeded) {
-        Write-Log "  ✅ PostgreSQL running on port 6000" "INFO"
-    } else {
-        Write-Log "  ❌ PostgreSQL not running!" "ERROR"
-        Write-Log "  Start with: docker start apexsigma.postgres.stable" "INFO"
-    }
-} catch {
-    Write-Log "  ⚠️  Could not verify PostgreSQL status" "WARN"
-}
-
-# Check Ollama
-try {
-    $ollamaTest = Test-NetConnection -ComputerName localhost -Port 11434 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-    if ($ollamaTest.TcpTestSucceeded) {
-        Write-Log "  ✅ Ollama running on port 11434" "INFO"
-    } else {
-        Write-Log "  ❌ Ollama not running!" "ERROR"
-    }
-} catch {
-    Write-Log "  ⚠️  Could not verify Ollama status" "WARN"
-}
-
-Write-Log ""
-
-# --- 3. START MEMOS.MCP SERVER ---
-$MemosProc = $null
-if (-not $SkipMemOS) {
-    Write-Log "========================================" "INFO"
-    Write-Log "Starting memOS.MCP Server" "INFO"
-    Write-Log "========================================" "INFO"
     
-    $MemosPath = Join-Path $ProjectRoot "memos.MCP"
-    $MemosServerScript = Join-Path $MemosPath "src\memos_mcp\server.py"
-    
-    if (Test-Path $MemosServerScript) {
-        # Check if already running
-        $ExistingMemos = Get-Process -Name "python" -ErrorAction SilentlyContinue | Where-Object {
-            $_.CommandLine -like "*memos_mcp*server*"
-        } | Select-Object -First 1
+    foreach ($db in $databases.Keys) {
+        $config = $databases[$db]
         
-        if ($ExistingMemos) {
-            Write-Log "  [i] memOS.MCP already running (PID: $($ExistingMemos.Id))" "INFO"
-            $MemosProc = $ExistingMemos
+        Write-InfoLog "Checking $db (port $($config.Port))..."
+        
+        if (Test-Port -Port $config.Port) {
+            Write-Success "$db is already running"
         } else {
+            Write-InfoLog "Starting $db container..."
             try {
-                Push-Location $MemosPath
-                $MemosLog = Join-Path $LogDir "memos_mcp_$Time.log"
-                $MemosErrLog = Join-Path $LogDir "memos_mcp_$Time.err.log"
+                docker start $config.Container 2>&1 | Out-Null
                 
-                $PoetryCommand = Get-Command poetry -ErrorAction SilentlyContinue
-                $SystemPython = "C:\Program Files\Python312\python.exe"
-
-                if ($PoetryCommand) {
-                    $MemosExecutor = $PoetryCommand.Source
-                    $MemosArgsList = "run python src/memos_mcp/server.py --sse"
-                } elseif (Test-Path $SystemPython) {
-                    $MemosExecutor = $SystemPython
-                    $MemosArgsList = "-m poetry run python src/memos_mcp/server.py --sse"
-                } else {
-                    $MemosExecutor = "python"
-                    $MemosArgsList = "-m poetry run python src/memos_mcp/server.py --sse"
+                $attempt = 0
+                $maxAttempts = 30
+                
+                while ($attempt -lt $maxAttempts) {
+                    $attempt++
+                    try {
+                        & $config.HealthCheck | Out-Null
+                        Write-Success "$db started successfully"
+                        break
+                    } catch {
+                        Write-WarnLog "Waiting for $db to start (attempt $attempt/$maxAttempts)..."
+                        Start-Sleep -Seconds 2
+                    }
                 }
                 
-                # Store for Watchdog Restart
-                $script:MemosExecutor = $MemosExecutor
-                $script:MemosArgsList = $MemosArgsList
-
-                $MemosArgs = @{
-                    FilePath = $MemosExecutor
-                    ArgumentList = $MemosArgsList
-                    WindowStyle = $WindowStyle
-                    PassThru = $true
-                    WorkingDirectory = $MemosPath
-                }
-                
-                if (-not $ShowConsole) {
-                    $MemosArgs['RedirectStandardOutput'] = $MemosLog
-                    $MemosArgs['RedirectStandardError'] = $MemosErrLog
-                }
-                
-                $MemosProc = Start-Process @MemosArgs
-                Pop-Location
-                
-                Write-Log "  [+] memOS.MCP started (PID: $($MemosProc.Id))" "INFO"
-                Write-Log "  [+] Endpoint: http://localhost:8768" "INFO"
-                Start-Sleep -Seconds 3
-                
-                if (-not (Get-Process -Id $MemosProc.Id -ErrorAction SilentlyContinue)) {
-                    Write-Log "  [-] memOS.MCP exited unexpectedly!" "ERROR"
-                    $MemosProc = $null
+                if ($attempt -eq $maxAttempts) {
+                    Write-ErrorLog "Failed to start $db"
+                    throw "$db failed to start"
                 }
             } catch {
-                Pop-Location
-                Write-Log "  [-] Failed to start memOS.MCP: $($_.Exception.Message)" "ERROR"
+                Write-ErrorLog "Failed to start $db: $($_.Exception.Message)"
+                throw
             }
         }
-    } else {
-        Write-Log "  [!] memOS.MCP not found at: $MemosPath" "WARN"
     }
-    Write-Log ""
+    
+    if (-not $SkipMigrations) {
+        Write-InfoLog "Running Alembic migrations..."
+        Invoke-AlembicMigrations
+    }
+    
+    Write-Success "Database initialization complete"
+    Write-InfoLog ""
 }
 
-# --- 4. START OMEGAKG FULL STACK ---
-$OmegaKGProcs = @{}
-if (-not $SkipOmegaKG) {
-    Write-Log "========================================" "INFO"
-    Write-Log "Starting OmegaKG Full Stack" "INFO"
-    Write-Log "========================================" "INFO"
-    
-    $OmegaKGPath = Join-Path $ProjectRoot "Omega_KG_stable"
-    $OmegaKGScript = Join-Path $OmegaKGPath "scripts\start_full_stack.ps1"
-    
-    if (Test-Path $OmegaKGScript) {
-        try {
-            Push-Location $OmegaKGPath
-            
-            $OmegaKGArgs = @{
-                FilePath = "powershell.exe"
-                ArgumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$OmegaKGScript`" $(if ($SkipCleanup) {'-SkipCleanup'} else {''}) $(if ($ShowConsole) {'-ShowConsole'} else {''}) $(if ($Persistent) {'-Persistent'} else {''})"
-                WindowStyle = $WindowStyle
-                PassThru = $true
-                WorkingDirectory = $OmegaKGPath
-            }
-            
-            $OmegaKGLauncher = Start-Process @OmegaKGArgs
-            Pop-Location
-            
-            Write-Log "  [+] OmegaKG launcher started (PID: $($OmegaKGLauncher.Id))" "INFO"
-            Write-Log "  [i] Waiting 8 seconds for services to initialize..." "INFO"
-            Start-Sleep -Seconds 8
-            
-            # Capture references to started processes
-            # Use CIM for properly reading CommandLines on Windows
-            $AllPythonProcs = Get-CimInstance Win32_Process -Filter "Name like '%python%'" | Select-Object ProcessId, CommandLine
-
-            $OmegaKGProcs['CaptureServer'] = $AllPythonProcs | Where-Object {
-                $_.CommandLine -like "*omega_kg.capture_server*"
-            } | Select-Object -First 1
-            
-            $OmegaKGProcs['EmbeddingWorker'] = $AllPythonProcs | Where-Object {
-                $_.CommandLine -like "*omega_kg.workers.embedding_worker*"
-            } | Select-Object -First 1
-            
-            $OmegaKGProcs['VectorWorker'] = $AllPythonProcs | Where-Object {
-                $_.CommandLine -like "*omega_kg.workers.vector_index_worker*"
-            } | Select-Object -First 1
-
-            $OmegaKGProcs['ConversationWorker'] = $AllPythonProcs | Where-Object {
-                $_.CommandLine -like "*omega_kg.workers.conversation_worker*"
-            } | Select-Object -First 1
-            
-            
-            if ($OmegaKGProcs['CaptureServer']) {
-                Write-Log "  [+] Capture Server running (PID: $($OmegaKGProcs['CaptureServer'].ProcessId))" "INFO"
-            }
-            if ($OmegaKGProcs['EmbeddingWorker']) {
-                Write-Log "  [+] Embedding Worker running (PID: $($OmegaKGProcs['EmbeddingWorker'].ProcessId))" "INFO"
-            }
-            if ($OmegaKGProcs['VectorWorker']) {
-                Write-Log "  [+] Vector Index Worker running (PID: $($OmegaKGProcs['VectorWorker'].ProcessId))" "INFO"
-            }
-            if ($OmegaKGProcs['ConversationWorker']) {
-                Write-Log "  [+] Conversation Worker running (PID: $($OmegaKGProcs['ConversationWorker'].ProcessId))" "INFO"
-            }
-            
-        } catch {
-            Pop-Location
-            Write-Log "  [-] Failed to start OmegaKG: $($_.Exception.Message)" "ERROR"
-        }
-    } else {
-        Write-Log "  [!] OmegaKG not found at: $OmegaKGPath" "WARN"
+function Invoke-AlembicMigrations {
+    $migrations = @{
+        "InGress" = "D:\projects\Soma\InGress"
+        "InGest" = "D:\projects\Soma\InGest"
+        "OmegaKG" = "D:\projects\Soma\OmegaKG"
+        "memOS" = "D:\projects\Soma\memOS"
     }
-    Write-Log ""
-}
-
-# --- 4B. START LOG WATCHDOG ---
-$LogWatchdogProc = $null
-if (-not $SkipOmegaKG) {
-    Write-Log "========================================" "INFO"
-    Write-Log "Starting Log Watchdog" "INFO"
-    Write-Log "========================================" "INFO"
     
-    $OmegaKGPath = Join-Path $ProjectRoot "Omega_KG_stable"
-    $WatchdogScriptRel = "scripts/maintenance/log_watchdog.py"
-    $FullWatchdogPath = Join-Path $OmegaKGPath $WatchdogScriptRel
-    
-    if (Test-Path $FullWatchdogPath) {
-        # Check if already running
-        $ExistingWatchdog = Get-CimInstance Win32_Process -Filter "Name like '%python%'" | Where-Object {
-            $_.CommandLine -like "*log_watchdog.py*"
-        } | Select-Object -First 1
+    foreach ($service in $migrations.Keys) {
+        $servicePath = $migrations[$service]
+        $alembicIni = Join-Path $servicePath "alembic.ini"
         
-        if ($ExistingWatchdog) {
-            Write-Log "  [i] Log Watchdog already running (PID: $($ExistingWatchdog.ProcessId))" "INFO"
-            $LogWatchdogProc = Get-Process -Id $ExistingWatchdog.ProcessId -ErrorAction SilentlyContinue
-        } else {
+        if (Test-Path $alembicIni) {
+            Write-InfoLog "Running migrations for $service..."
+            
+            $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
+            
             try {
-                Push-Location $OmegaKGPath
-                $WatchdogLog = Join-Path $LogDir "log_watchdog_$Time.log"
-                $WatchdogErrLog = Join-Path $LogDir "log_watchdog_$Time.err.log"
-                
-                $PoetryCommand = Get-Command poetry -ErrorAction SilentlyContinue
-                $SystemPython = "C:\Program Files\Python312\python.exe"
-
-                if ($PoetryCommand) {
-                    $WatchdogExecutor = $PoetryCommand.Source
-                    $WatchdogArgsList = "run python $WatchdogScriptRel"
-                } elseif (Test-Path $SystemPython) {
-                    $WatchdogExecutor = $SystemPython
-                    $WatchdogArgsList = "-m poetry run python $WatchdogScriptRel"
+                $migrationCmd = if ($ExecutorInfo.UsePoetry) {
+                    "run alembic upgrade head"
                 } else {
-                    $WatchdogExecutor = "python"
-                    $WatchdogArgsList = "-m poetry run python $WatchdogScriptRel"
-                }
-
-                $WatchdogArgs = @{
-                    FilePath = $WatchdogExecutor
-                    ArgumentList = $WatchdogArgsList
-                    WindowStyle = $WindowStyle
-                    PassThru = $true
-                    WorkingDirectory = $OmegaKGPath
+                    "-m alembic upgrade head"
                 }
                 
-                if (-not $ShowConsole) {
-                    $WatchdogArgs['RedirectStandardOutput'] = $WatchdogLog
-                    $WatchdogArgs['RedirectStandardError'] = $WatchdogErrLog
+                $result = Start-Process -FilePath $ExecutorInfo.Executor `
+                    -ArgumentList $migrationCmd `
+                    -WorkingDirectory $servicePath `
+                    -Wait -NoNewWindow -PassThru `
+                    -RedirectStandardOutput (Join-Path $ProjectRoot "logs\${service}_migrations.log") `
+                    -RedirectStandardError (Join-Path $ProjectRoot "logs\${service}_migrations.err.log")
+                
+                if ($result.ExitCode -eq 0) {
+                    Write-Success "$service migrations completed"
+                } else {
+                    Write-WarnLog "$service migrations failed with exit code $($result.ExitCode)"
                 }
-                
-                $LogWatchdogProc = Start-Process @WatchdogArgs
-                Pop-Location
-                
-                Write-Log "  [+] Log Watchdog started (PID: $($LogWatchdogProc.Id))" "INFO"
-                Start-Sleep -Seconds 2
-                
             } catch {
-                Pop-Location
-                Write-Log "  [-] Failed to start Log Watchdog: $($_.Exception.Message)" "ERROR"
-            }
-        }
-    } else {
-        Write-Log "  [!] Log Watchdog not found at: $FullWatchdogPath" "WARN"
-    }
-    Write-Log ""
-}
-
-# --- 5. START INGEST-LLM.AS ---
-$IngestProcs = @{}
-if (-not $SkipIngestLLM) {
-    Write-Log "========================================" "INFO"
-    Write-Log "Starting InGest-LLM.as" "INFO"
-    Write-Log "========================================" "INFO"
-    
-    $IngestPath = Join-Path $ProjectRoot "InGest-LLM.as"
-    $IngestScript = Join-Path $IngestPath "scripts\start_ingest_llm.ps1"
-    
-    if (Test-Path $IngestScript) {
-        try {
-            Push-Location $IngestPath
-            
-            $IngestArgs = @{
-                FilePath = "powershell.exe"
-                ArgumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$IngestScript`" $(if ($ShowConsole) {'-ShowConsole'} else {''}) $(if ($Persistent) {'-Persistent'} else {''})"
-                WindowStyle = $WindowStyle
-                PassThru = $true
-                WorkingDirectory = $IngestPath
-            }
-            
-            $IngestLauncher = Start-Process @IngestArgs
-            Pop-Location
-            
-            Write-Log "  [+] InGest-LLM.as launcher started (PID: $($IngestLauncher.Id))" "INFO"
-            Write-Log "  [i] Waiting 12 seconds for services to initialize..." "INFO"
-            Start-Sleep -Seconds 12
-            
-            # Capture references
-            $IngestPythonProcs = Get-CimInstance Win32_Process -Filter "Name like '%python%' OR Name like '%uvicorn%'" | Select-Object ProcessId, CommandLine
-            
-            $IngestProcs['Uvicorn'] = $IngestPythonProcs | Where-Object {
-                $_.CommandLine -like "*uvicorn*ingest_llm_as.main*"
-            } | Select-Object -First 1
-            
-            $IngestProcs['Cloudflared'] = Get-CimInstance Win32_Process -Filter "Name like '%cloudflared%'" | Where-Object {
-                $_.CommandLine -like "*valhalla-gateway*" -or $_.CommandLine -like "*tunnel*"
-            } | Select-Object -First 1
-            
-            if ($IngestProcs['Uvicorn']) {
-                Write-Log "  [+] Uvicorn API running (PID: $($IngestProcs['Uvicorn'].ProcessId))" "INFO"
-                Write-Log "  [+] Endpoint: http://localhost:8766" "INFO"
-            }
-            if ($IngestProcs['Cloudflared']) {
-                Write-Log "  [+] Cloudflared Tunnel running (PID: $($IngestProcs['Cloudflared'].Id))" "INFO"
-            }
-            
-        } catch {
-            Pop-Location
-            Write-Log "  [-] Failed to start InGest-LLM.as: $($_.Exception.Message)" "ERROR"
-        }
-    } else {
-        Write-Log "  [!] InGest-LLM.as not found at: $IngestPath" "WARN"
-    }
-    Write-Log ""
-}
-
-# --- 6. START CORTEXBRIDGE ---
-$CortexProc = $null
-if (-not $SkipCortexBridge) {
-    Write-Log "========================================" "INFO"
-    Write-Log "Starting CortexBridge (Frontend)" "INFO"
-    Write-Log "========================================" "INFO"
-    
-    $CortexPath = Join-Path $ProjectRoot "CortexBridge"
-    
-    if (Test-Path $CortexPath) {
-        # Check node/npm
-        if (Get-Command npm -ErrorAction SilentlyContinue) {
-            # Check if likely already running (port check)
-            $cortexPortTest = Test-NetConnection -ComputerName localhost -Port 6001 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-            
-            if ($cortexPortTest.TcpTestSucceeded) {
-                Write-Log "  [i] CortexBridge likely running (Port 6001 active)" "INFO"
-            } else {
-                try {
-                    Push-Location $CortexPath
-                    $CortexLog = Join-Path $LogDir "cortex_$Time.log"
-                    $CortexErrLog = Join-Path $LogDir "cortex_$Time.err.log"
-                    
-                    Write-Log "  [+] Launching 'npm run dev'..." "INFO"
-                    
-                    $CortexArgs = @{
-                        FilePath = "npm.cmd"
-                        ArgumentList = "run dev"
-                        WindowStyle = $WindowStyle
-                        PassThru = $true
-                        WorkingDirectory = $CortexPath
-                    }
-                    
-                    if (-not $ShowConsole) {
-                        $CortexArgs['RedirectStandardOutput'] = $CortexLog
-                        $CortexArgs['RedirectStandardError'] = $CortexErrLog
-                    }
-                    
-                    $CortexProc = Start-Process @CortexArgs
-                    Pop-Location
-                    
-                    Write-Log "  [+] CortexBridge started (PID: $($CortexProc.Id))" "INFO"
-                    Write-Log "  [i] Waiting 5 seconds for Vite to initialize..." "INFO"
-                    Start-Sleep -Seconds 5
-                    
-                    if (-not (Get-Process -Id $CortexProc.Id -ErrorAction SilentlyContinue)) {
-                        Write-Log "  [-] CortexBridge exited unexpectedly!" "ERROR"
-                        $CortexProc = $null
-                    }
-                } catch {
-                    Pop-Location
-                    Write-Log "  [-] Failed to start CortexBridge: $($_.Exception.Message)" "ERROR"
-                }
+                Write-WarnLog "Failed to run migrations for $service: $($_.Exception.Message)"
             }
         } else {
-            Write-Log "  [!] npm not found in PATH" "WARN"
+            Write-WarnLog "No alembic.ini found for $service, skipping migrations"
         }
-    } else {
-        Write-Log "  [!] CortexBridge not found at: $CortexPath" "WARN"
     }
-    Write-Log ""
 }
 
-# --- 7. SUMMARY ---
-Write-Log "========================================" "INFO"
-Write-Log "OmegaKG Ecosystem Status" "INFO"
-Write-Log "========================================" "INFO"
-
-if ($MemosProc) {
-    Write-Log "  ✅ memOS.MCP:           http://localhost:8768" "INFO"
-} else {
-    Write-Log "  ❌ memOS.MCP:           Not running" "WARN"
+function Validate-ServiceContracts {
+    param(
+        [string]$ServiceName,
+        [string]$ContractPath
+    )
+    
+    Write-InfoLog "Validating API contracts for $ServiceName..."
+    
+    if (-not (Test-Path $ContractPath)) {
+        Write-WarnLog "No contract file found at $ContractPath"
+        return $false
+    }
+    
+    try {
+        $contract = Get-Content $ContractPath -Raw | ConvertFrom-Json
+        
+        if ($contract.contract_version) {
+            Write-Success "$ServiceName contract v$($contract.contract_version) loaded"
+            
+            if ($contract.input_schema) {
+                Write-InfoLog "  - Input schema: $($contract.input_schema.source)"
+            }
+            if ($contract.output_schema) {
+                Write-InfoLog "  - Output schema: $($contract.output_schema.target)"
+            }
+            return $true
+        } else {
+            Write-WarnLog "Invalid contract format for $ServiceName"
+            return $false
+        }
+    } catch {
+        Write-WarnLog "Failed to validate contract for $ServiceName: $($_.Exception.Message)"
+        return $false
+    }
 }
 
-if ($OmegaKGProcs['CaptureServer']) {
-    Write-Log "  ✅ OmegaKG Capture:     http://localhost:8765" "INFO"
-} else {
-    Write-Log "  ❌ OmegaKG Capture:     Not running" "WARN"
+function Start-Ingress {
+    param([switch]$ShowConsole)
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Starting InGress (Senses Layer)"
+    Write-InfoLog "========================================"
+    
+    $servicePath = "D:\projects\Soma\InGress"
+    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
+    
+    if (-not (Test-Path $servicePath)) {
+        Write-ErrorLog "InGress not found at $servicePath"
+        $global:ServicesFailed["InGress"] = "Directory not found"
+        return
+    }
+    
+    Stop-ServiceProcesses -Pattern "soma_ingress" -ServiceName "InGress"
+    
+    try {
+        $logDir = Join-Path $ProjectRoot "logs"
+        $runArgs = if ($ExecutorInfo.UsePoetry) {
+            "run python -m soma_ingress.main"
+        } else {
+            "-m uvicorn soma_ingress.main:app --port 8000"
+        }
+        
+        $startParams = @{
+            FilePath = $ExecutorInfo.Executor
+            ArgumentList = $runArgs
+            WorkingDirectory = $servicePath
+            PassThru = $true
+        }
+        
+        if (-not $ShowConsole) {
+            $startParams["WindowStyle"] = "Hidden"
+            $startParams["RedirectStandardOutput"] = Join-Path $logDir "ingress_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+            $startParams["RedirectStandardError"] = Join-Path $logDir "ingress_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
+        }
+        
+        $proc = Start-Process @startParams
+        
+        if (Invoke-ServiceHealthCheck -ServiceName "InGress" -Port 8000) {
+            $global:ServicesStarted["InGress"] = $proc.Id
+            Write-Success "InGress started successfully (PID: $($proc.Id))"
+        } else {
+            $global:ServicesFailed["InGress"] = "Health check failed"
+            Write-ErrorLog "InGress failed health check"
+        }
+    } catch {
+        $global:ServicesFailed["InGress"] = $_.Exception.Message
+        Write-ErrorLog "Failed to start InGress: $($_.Exception.Message)"
+    }
 }
 
-if ($OmegaKGProcs['EmbeddingWorker']) {
-    Write-Log "  ✅ Embedding Worker:    Running" "INFO"
-} else {
-    Write-Log "  ⚠️  Embedding Worker:    Not running" "WARN"
+function Start-Ingest {
+    param([switch]$ShowConsole)
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Starting InGest (Stomach Layer)"
+    Write-InfoLog "========================================"
+    
+    $servicePath = "D:\projects\Soma\InGest"
+    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
+    
+    if (-not (Test-Path $servicePath)) {
+        Write-ErrorLog "InGest not found at $servicePath"
+        $global:ServicesFailed["InGest"] = "Directory not found"
+        return
+    }
+    
+    if (-not $SkipContracts) {
+        Validate-ServiceContracts -ServiceName "InGest" -ContractPath (Join-Path $servicePath "validators\omega_ingest_contract.json")
+    }
+    
+    Stop-ServiceProcesses -Pattern "ingest_llm_as" -ServiceName "InGest"
+    
+    try {
+        $logDir = Join-Path $ProjectRoot "logs"
+        $runArgs = if ($ExecutorInfo.UsePoetry) {
+            "run python -m ingest_llm_as.main"
+        } else {
+            "-m uvicorn ingest_llm_as.main:app --port 8766"
+        }
+        
+        $startParams = @{
+            FilePath = $ExecutorInfo.Executor
+            ArgumentList = $runArgs
+            WorkingDirectory = Join-Path $servicePath "src"
+            PassThru = $true
+        }
+        
+        if (-not $ShowConsole) {
+            $startParams["WindowStyle"] = "Hidden"
+            $startParams["RedirectStandardOutput"] = Join-Path $logDir "ingest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+            $startParams["RedirectStandardError"] = Join-Path $logDir "ingest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
+        }
+        
+        $proc = Start-Process @startParams
+        
+        if (Invoke-ServiceHealthCheck -ServiceName "InGest" -Port 8766) {
+            $global:ServicesStarted["InGest"] = $proc.Id
+            Write-Success "InGest started successfully (PID: $($proc.Id))"
+        } else {
+            $global:ServicesFailed["InGest"] = "Health check failed"
+            Write-ErrorLog "InGest failed health check"
+        }
+    } catch {
+        $global:ServicesFailed["InGest"] = $_.Exception.Message
+        Write-ErrorLog "Failed to start InGest: $($_.Exception.Message)"
+    }
 }
 
-if ($OmegaKGProcs['VectorWorker']) {
-    Write-Log "  ✅ Vector Worker:       Running" "INFO"
-} else {
-    Write-Log "  ⚠️  Vector Worker:       Not running" "WARN"
+function Start-OmegaKG {
+    param([switch]$ShowConsole)
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Starting OmegaKG (Brain Layer)"
+    Write-InfoLog "========================================"
+    
+    $servicePath = "D:\projects\Soma\OmegaKG"
+    $startScript = Join-Path $servicePath "scripts\start_full_stack.ps1"
+    
+    if (-not (Test-Path $startScript)) {
+        Write-ErrorLog "OmegaKG start script not found at $startScript"
+        $global:ServicesFailed["OmegaKG"] = "Start script not found"
+        return
+    }
+    
+    Stop-ServiceProcesses -Pattern "omega_kg" -ServiceName "OmegaKG"
+    
+    try {
+        $logDir = Join-Path $ProjectRoot "logs"
+        $consoleFlag = if ($ShowConsole) { "-ShowConsole" } else { "" }
+        
+        $proc = Start-Process -FilePath "powershell.exe" `
+            -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startScript`" $consoleFlag" `
+            -WorkingDirectory $servicePath `
+            -PassThru
+        
+        Write-InfoLog "Waiting for OmegaKG services to initialize..."
+        Start-Sleep -Seconds 10
+        
+        if (Invoke-ServiceHealthCheck -ServiceName "OmegaKG" -Port 8765) {
+            $global:ServicesStarted["OmegaKG"] = $proc.Id
+            Write-Success "OmegaKG started successfully (PID: $($proc.Id))"
+        } else {
+            $global:ServicesFailed["OmegaKG"] = "Health check failed"
+            Write-WarnLog "OmegaKG health check failed, but capture server may be starting"
+            $global:ServicesStarted["OmegaKG"] = $proc.Id
+        }
+    } catch {
+        $global:ServicesFailed["OmegaKG"] = $_.Exception.Message
+        Write-ErrorLog "Failed to start OmegaKG: $($_.Exception.Message)"
+    }
 }
 
-if ($OmegaKGProcs['ConversationWorker']) {
-    Write-Log "  ✅ Conversation Worker: Running" "INFO"
-} else {
-    Write-Log "  ⚠️  Conversation Worker: Not running" "WARN"
+function Start-MemOS {
+    param([switch]$ShowConsole)
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Starting memOS (Hands Layer)"
+    Write-InfoLog "========================================"
+    
+    $servicePath = "D:\projects\Soma\memOS"
+    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
+    
+    if (-not (Test-Path $servicePath)) {
+        Write-ErrorLog "memOS not found at $servicePath"
+        $global:ServicesFailed["memOS"] = "Directory not found"
+        return
+    }
+    
+    Stop-ServiceProcesses -Pattern "memos_mcp" -ServiceName "memOS"
+    
+    try {
+        $logDir = Join-Path $ProjectRoot "logs"
+        $runArgs = if ($ExecutorInfo.UsePoetry) {
+            "run python -m memos_mcp.server --sse"
+        } else {
+            "-m memos_mcp.server --sse"
+        }
+        
+        $startParams = @{
+            FilePath = $ExecutorInfo.Executor
+            ArgumentList = $runArgs
+            WorkingDirectory = Join-Path $servicePath "src"
+            PassThru = $true
+        }
+        
+        if (-not $ShowConsole) {
+            $startParams["WindowStyle"] = "Hidden"
+            $startParams["RedirectStandardOutput"] = Join-Path $logDir "memos_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+            $startParams["RedirectStandardError"] = Join-Path $logDir "memos_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
+        }
+        
+        $proc = Start-Process @startParams
+        
+        if (Invoke-ServiceHealthCheck -ServiceName "memOS" -Port 8768) {
+            $global:ServicesStarted["memOS"] = $proc.Id
+            Write-Success "memOS started successfully (PID: $($proc.Id))"
+        } else {
+            $global:ServicesFailed["memOS"] = "Health check failed"
+            Write-WarnLog "memOS health check failed, but MCP server may be starting"
+            $global:ServicesStarted["memOS"] = $proc.Id
+        }
+    } catch {
+        $global:ServicesFailed["memOS"] = $_.Exception.Message
+        Write-ErrorLog "Failed to start memOS: $($_.Exception.Message)"
+    }
 }
 
-if ($IngestProcs['Uvicorn']) {
-    Write-Log "  ✅ InGest-LLM API:      http://localhost:8766" "INFO"
-} else {
-    Write-Log "  ❌ InGest-LLM API:      Not running" "WARN"
+function Start-Cortex {
+    param([switch]$ShowConsole)
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Starting Cortex (Dashboard/Control Room)"
+    Write-InfoLog "========================================"
+    
+    $servicePath = "D:\projects\Soma\Cortex"
+    
+    if (-not (Test-Path $servicePath)) {
+        Write-ErrorLog "Cortex not found at $servicePath"
+        $global:ServicesFailed["Cortex"] = "Directory not found"
+        return
+    }
+    
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-ErrorLog "npm not found in PATH. Cannot start Cortex."
+        $global:ServicesFailed["Cortex"] = "npm not found"
+        return
+    }
+    
+    Stop-ServiceProcesses -Pattern "vite" -ServiceName "Cortex"
+    
+    try {
+        Push-Location $servicePath
+        
+        Write-InfoLog "Installing Cortex dependencies (if needed)..."
+        $installResult = Start-Process -FilePath "npm" `
+            -ArgumentList "install" `
+            -Wait -NoNewWindow -PassThru
+        
+        if ($installResult.ExitCode -ne 0) {
+            Write-WarnLog "npm install had issues, continuing anyway..."
+        }
+        
+        Write-InfoLog "Starting Cortex dev server..."
+        
+        $logDir = Join-Path $ProjectRoot "logs"
+        $startParams = @{
+            FilePath = "npm.cmd"
+            ArgumentList = "run dev"
+            PassThru = $true
+        }
+        
+        if (-not $ShowConsole) {
+            $startParams["WindowStyle"] = "Hidden"
+            $startParams["RedirectStandardOutput"] = Join-Path $logDir "cortex_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+            $startParams["RedirectStandardError"] = Join-Path $logDir "cortex_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
+        }
+        
+        $proc = Start-Process @startParams
+        Pop-Location
+        
+        Write-InfoLog "Waiting for Cortex to initialize..."
+        Start-Sleep -Seconds 8
+        
+        $cortexPort = 5173
+        if (Test-Port -Port $cortexPort) {
+            $global:ServicesStarted["Cortex"] = $proc.Id
+            Write-Success "Cortex started successfully (PID: $($proc.Id))"
+            
+            Write-InfoLog "Opening Cortex Dashboard in browser..."
+            Start-Process "http://localhost:$cortexPort"
+        } else {
+            $global:ServicesFailed["Cortex"] = "Health check failed"
+            Write-WarnLog "Cortex health check failed, but Vite may be starting"
+            $global:ServicesStarted["Cortex"] = $proc.Id
+        }
+    } catch {
+        $global:ServicesFailed["Cortex"] = $_.Exception.Message
+        Write-ErrorLog "Failed to start Cortex: $($_.Exception.Message)"
+        Pop-Location
+    }
 }
 
-if ($IngestProcs['Cloudflared']) {
-    Write-Log "  ✅ Cloudflared Tunnel:  Running" "INFO"
-} else {
-    Write-Log "  ⚠️  Cloudflared Tunnel:  Not running" "WARN"
+function Show-EcosystemStatus {
+    Write-InfoLog "========================================"
+    Write-InfoLog "Soma Ecosystem Status"
+    Write-InfoLog "========================================"
+    
+    $services = @(
+        @{ Name = "InGress"; Port = 8000; URL = "http://localhost:8000" },
+        @{ Name = "InGest"; Port = 8766; URL = "http://localhost:8766" },
+        @{ Name = "OmegaKG"; Port = 8765; URL = "http://localhost:8765" },
+        @{ Name = "memOS"; Port = 8768; URL = "http://localhost:8768" },
+        @{ Name = "Cortex"; Port = 5173; URL = "http://localhost:5173" }
+    )
+    
+    foreach ($svc in $services) {
+        if ($global:ServicesStarted.ContainsKey($svc.Name)) {
+            Write-Success "  $($svc.Name): $($svc.URL) (PID: $($global:ServicesStarted[$svc.Name]))"
+        } elseif ($global:ServicesFailed.ContainsKey($svc.Name)) {
+            Write-ErrorLog "  $($svc.Name): FAILED - $($global:ServicesFailed[$svc.Name])"
+        } else {
+            Write-WarnLog "  $($svc.Name): SKIPPED"
+        }
+    }
+    
+    Write-InfoLog "========================================"
 }
 
-if ($LogWatchdogProc) {
-    Write-Log "  ✅ Log Watchdog:        Running" "INFO"
-} else {
-    Write-Log "  ⚠️  Log Watchdog:        Not running" "WARN"
-}
-
-if ($CortexProc -or (Test-NetConnection -ComputerName localhost -Port 6001 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue).TcpTestSucceeded) {
-    Write-Log "  ✅ CortexBridge:        http://localhost:6001" "INFO"
-} else {
-    Write-Log "  ❌ CortexBridge:        Not running" "WARN"
-}
-
-Write-Log "========================================" "INFO"
-Write-Log ""
-
-# Open CortexBridge dashboard in default browser (Last action)
-if (-not $SkipCortexBridge) {
-    Write-Log "Opening Dashboard: http://localhost:6001" "INFO"
-    Start-Process "http://localhost:6001"
-}
-
-# --- 8. PERSISTENCE LOOP (MASTER WATCHDOG) ---
-if ($Persistent) {
-    Write-Log "MASTER WATCHDOG ACTIVE: Monitoring all services every 15s." "INFO"
-    Write-Log "Press Ctrl+C to stop all services." "INFO"
-    Write-Log ""
+function Start-Watchdog {
+    Write-InfoLog "========================================"
+    Write-InfoLog "Master Watchdog Active"
+    Write-InfoLog "Monitoring services every 30 seconds"
+    Write-InfoLog "Press Ctrl+C to stop"
+    Write-InfoLog "========================================"
     
     while ($true) {
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 30
         
-        $RestartTime = Get-Date -Format "HH:mm:ss"
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        Write-InfoLog "[$timestamp] Watchdog check..."
         
-        # Note: Individual service scripts handle their own restarts
-        # This is just high-level monitoring
-        
-        # Check memOS.MCP - use process query instead of HasExited (launcher exits after spawning server)
-        $memosCheck = Get-CimInstance Win32_Process -Filter "Name like '%python%'" | Where-Object { $_.CommandLine -like "*memos_mcp*server*" }
-        if (-not $memosCheck) {
-            Write-Log "[$RestartTime] memOS.MCP exited unexpectedly! Restarting..." "WARN"
+        foreach ($serviceName in $global:ServicesStarted.Keys) {
+            $pid = $global:ServicesStarted[$serviceName]
             
-            # 1. Kill any zombies
-            Kill-TargetProcess "memos_mcp" "memOS.MCP (Zombie)"
-            
-            # 2. Restart
             try {
-                if ($script:MemosExecutor) {
-                     $MemosArgs = @{
-                        FilePath = $script:MemosExecutor
-                        ArgumentList = $script:MemosArgsList
-                        WindowStyle = $WindowStyle
-                        PassThru = $true
-                        WorkingDirectory = (Join-Path $ProjectRoot "memos.MCP")
-                    }
-                    if (-not $ShowConsole) {
-                        $MemosArgs['RedirectStandardOutput'] = (Join-Path $LogDir "memos_mcp_$RestartTime.log".Replace(":","-"))
-                        $MemosArgs['RedirectStandardError'] = (Join-Path $LogDir "memos_mcp_$RestartTime.err.log".Replace(":","-"))
-                    }
-                    
-                    $MemosProc = Start-Process @MemosArgs
-                    Write-Log "  [+] memOS.MCP restarted (PID: $($MemosProc.Id))" "INFO"
-                } else {
-                    Write-Log "  [-] Cannot restart memOS.MCP: Executor info missing." "ERROR"
+                $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                if (-not $proc) {
+                    Write-WarnLog "[$timestamp] $serviceName (PID: $pid) is not running!"
                 }
             } catch {
-                Write-Log "  [-] Failed to restart memOS.MCP: $($_.Exception.Message)" "ERROR"
-            }
-        }
-
-        # Retrieve all python/uvicorn processes once to minimize WMI calls
-        $AllPythonProcs = Get-CimInstance Win32_Process -Filter "Name like '%python%' OR Name like '%uvicorn%'" | Select-Object ProcessId, CommandLine
-
-        # Verify OmegaKG Capture Server
-        $captureCheck = $AllPythonProcs | Where-Object { $_.CommandLine -like "*omega_kg.capture_server*" }
-        if (-not $captureCheck) {
-            Write-Log "[$RestartTime] OmegaKG Capture Server is down!" "WARN"
-        }
-
-        # Verify InGest-LLM Uvicorn
-        $uvicornCheck = $AllPythonProcs | Where-Object { $_.CommandLine -like "*uvicorn*ingest_llm_as*" }
-        if (-not $uvicornCheck) {
-            Write-Log "[$RestartTime] InGest-LLM Uvicorn is down!" "WARN"
-        }
-
-        # Verify Log Watchdog
-        if ($LogWatchdogProc) {
-             if ($LogWatchdogProc.HasExited) {
-                Write-Log "[$RestartTime] Log Watchdog exited unexpectedly!" "WARN"
-                $LogWatchdogProc = $null
-             }
-        }
-
-        # Verify CortexBridge (npm run dev usually spawns node)
-        # We'll rely on our process handle if we started it
-        if ($CortexProc) {
-            if ($CortexProc.HasExited) {
-                Write-Log "[$RestartTime] CortexBridge exited unexpectedly!" "ERROR"
-                $CortexProc = $null
+                Write-WarnLog "[$timestamp] Failed to check $serviceName (PID: $pid)"
             }
         }
     }
-} else {
-    Write-Log "Ecosystem startup complete." "INFO"
-    Write-Log "All services are running independently." "INFO"
-    Write-Log "Use -Persistent flag for master watchdog monitoring." "INFO"
+}
+
+try {
+    $env:PYTHONUTF8 = "1"
+    
+    Write-InfoLog "========================================"
+    Write-InfoLog "Soma Ecosystem Launcher v2.0"
+    Write-InfoLog "========================================"
+    Write-InfoLog "Mode: $(if ($ShowConsole) { 'DEBUG (Visible)' } else { 'PRODUCTION (Hidden)' })"
+    Write-InfoLog "Watchdog: $(if ($Persistent) { 'ENABLED' } else { 'DISABLED' })"
+    Write-InfoLog "Migrations: $(if ($SkipMigrations) { 'SKIPPED' } else { 'ENABLED' })"
+    Write-InfoLog "Contracts: $(if ($SkipContracts) { 'SKIPPED' } else { 'ENABLED' })"
+    Write-InfoLog ""
+    
+    if (-not $SkipCleanup) {
+        Write-InfoLog "Performing pre-flight cleanup..."
+        foreach ($svc in @("InGress", "InGest", "OmegaKG", "memOS", "Cortex")) {
+            Stop-ServiceProcesses -Pattern $svc.ToLower() -ServiceName $svc
+        }
+        Write-Success "Cleanup complete"
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipInfrastructure) {
+        Initialize-Databases -SkipMigrations:$SkipMigrations
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipIngress) {
+        Start-Ingress -ShowConsole:$ShowConsole
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipIngest) {
+        Start-Ingest -ShowConsole:$ShowConsole
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipOmegaKG) {
+        Start-OmegaKG -ShowConsole:$ShowConsole
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipMemOS) {
+        Start-MemOS -ShowConsole:$ShowConsole
+        Write-InfoLog ""
+    }
+    
+    if (-not $SkipCortex) {
+        Start-Cortex -ShowConsole:$ShowConsole
+        Write-InfoLog ""
+    }
+    
+    Show-EcosystemStatus
+    
+    $failedCount = $global:ServicesFailed.Count
+    if ($failedCount -gt 0) {
+        Write-WarnLog "========================================"
+        Write-WarnLog "WARNING: $failedCount service(s) failed to start"
+        Write-WarnLog "========================================"
+        foreach ($svc in $global:ServicesFailed.Keys) {
+            Write-WarnLog "  - $svc: $($global:ServicesFailed[$svc])"
+        }
+        Write-WarnLog "========================================"
+        Write-InfoLog ""
+    }
+    
+    if ($Persistent) {
+        Start-Watchdog
+    } else {
+        Write-Success "Ecosystem startup complete!"
+        Write-InfoLog "All services are running independently."
+        Write-InfoLog "Use -Persistent flag for watchdog monitoring."
+    }
+    
+} catch {
+    Write-ErrorLog "FATAL ERROR: $($_.Exception.Message)"
+    Write-ErrorLog $_.ScriptStackTrace
+    exit 1
 }

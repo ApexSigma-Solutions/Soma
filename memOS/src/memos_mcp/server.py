@@ -233,10 +233,13 @@ if __name__ == "__main__":
 
         wrapper_app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins for dev environment
+            allow_origins=[
+                "http://localhost:5173",  # Cortex dev
+                "http://localhost:3000",  # Alternative dev
+            ],
             allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Authorization", "Content-Type"],
         )
 
         # 4. Add Health Check (Required for Dashboard)

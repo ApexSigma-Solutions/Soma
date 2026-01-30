@@ -32,13 +32,29 @@
       "Bash(docker exec apexsigma.postgres psql -U omega_user -d omegakg -c \"SELECT tablename FROM pg_tables WHERE schemaname = ''public'' ORDER BY tablename;\")",
       "Bash(poetry run alembic status)",
       "Bash(poetry run alembic heads)",
-      "Bash(powershell -Command \"Get-Content ''D:\\\\agents\\\\kilocode\\\\storage\\\\settings\\\\mcp_settings.json'' | ConvertFrom-Json | ConvertTo-Json -Depth 32\")"
+      "Bash(powershell -Command \"Get-Content ''D:\\\\agents\\\\kilocode\\\\storage\\\\settings\\\\mcp_settings.json'' | ConvertFrom-Json | ConvertTo-Json -Depth 32\")",
+      "Bash(opencode --version)",
+      "Bash(bunx oh-my-opencode-slim install --no-tui --antigravity=yes --openai=no --cerebras=no)",
+      "Bash(bunx oh-my-opencode-slim install --no-tui --antigravity=yes --openai=no --cerebras=no --kimi=no --tmux=yes)",
+      "Bash(opencode)",
+      "Bash(where opencode)",
+      "Bash(\"C:\\\\Users\\\\steyn\\\\AppData\\\\Roaming\\\\npm\\\\opencode.cmd\" --version)",
+      "Bash(\"C:\\\\Users\\\\steyn\\\\AppData\\\\Roaming\\\\npm\\\\opencode.cmd\" auth status)",
+      "Bash(\"C:\\\\Users\\\\steyn\\\\AppData\\\\Roaming\\\\npm\\\\opencode.cmd\" auth list)",
+      "Bash(\"C:\\\\Users\\\\steyn\\\\AppData\\\\Roaming\\\\npm\\\\opencode.cmd\" models)",
+      "mcp__web-reader__webReader",
+      "Bash(tasklist)",
+      "Bash(findstr -i opencode)",
+      "Bash(taskkill /F /PID 4208)",
+      "Bash(taskkill /F /PID 39044)",
+      "Bash(taskkill //F //PID 4208)",
+      "Bash(taskkill //F //PID 39044)"
     ]
   },
-  "outputStyle": "default",
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "memos-mcp",
     "serena"
   ],
-  "enableAllProjectMcpServers": true
+  "outputStyle": "default"
 }

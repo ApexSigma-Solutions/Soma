@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from datetime import datetime
 import logging
+import enum
 
 from omega_kg.database.graph import graph_driver
 from omega_kg.vector_store import get_vector_store
@@ -11,6 +12,69 @@ from omega_kg.utils.capture_utils import write_to_obsidian
 from omega_kg.models.validation_schemas import KnowledgeDigest
 
 logger = logging.getLogger("Soma.Guardian")
+
+# ==============================================================================
+# SECURITY FIX: Valid Node Labels Enum
+# ==============================================================================
+
+
+class ValidNodeLabels(enum.Enum):
+    """
+    Whitelist of valid Neo4j node labels.
+    This prevents Cypher injection by enforcing a controlled set of labels.
+    """
+
+    ATOMIC_FACT = "AtomicFact"
+    MEMORY_ATOM = "MemoryAtom"
+    TASK = "Task"
+    TASK_PLAN = "TaskPlan"
+    ADR = "ADR"
+    BACKLOG_PLAN = "BacklogPlan"
+    PLAN = "Plan"
+    CONSTRAINT = "Constraint"
+    CONTEXT = "Context"
+    INCIDENT = "Incident"
+    CODE_BLOCK = "CodeBlock"
+    ERROR_LOG = "ErrorLog"
+    CONCEPT = "Concept"
+    FILE = "File"
+    LINEAR_ISSUE = "LinearIssue"
+
+
+# ==============================================================================
+
+
+# Security validation function
+def validate_node_label(label: str) -> str:
+    """
+    Validate and sanitize a Neo4j node label to prevent Cypher injection.
+
+    Args:
+        label: Proposed node label from request
+
+    Returns:
+        Validated label name
+
+    Raises:
+        HTTPException: If label is not in whitelist
+    """
+    try:
+        # Convert to enum value to validate
+        validated = ValidNodeLabels(label)
+        return validated.value
+    except ValueError:
+        logger.error(
+            f"Attempted to use invalid node label: {label}. "
+            f"This may indicate a Cypher injection attempt."
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid node label: {label}. "
+            f"Allowed labels: {[l.value for l in ValidNodeLabels]}",
+        )
+
+
+# ==============================================================================
 
 # --- CONFIGURATION ---
 SOMA_INTERNAL_KEY = os.getenv("SOMA_INTERNAL_KEY")
@@ -288,11 +352,14 @@ async def store_embedding(
     Used by InGest Vector Indexer.
     """
     async with graph_driver.session() as session:
+        # SECURITY FIX: Validate node_label BEFORE using it in Cypher
+        validated_label = validate_node_label(request.node_label)
+
         # Update existing node or create generic MemoryAtom
         # We try to match by raw_id/digest_id
         result = await session.run(
             f"""
-            MERGE (n:{request.node_label} {{raw_id: $raw_id}})
+            MERGE (n:{validated_label} {{raw_id: $raw_id}})
             SET n.embedding = $embedding,
                 n.processed_at = datetime()
             RETURN elementId(n) as id
