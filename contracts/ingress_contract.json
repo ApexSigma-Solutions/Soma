@@ -1,0 +1,66 @@
+{
+  "contract_version": "1.0.0",
+  "service": "InGress",
+  "description": "Senses Layer - Lightweight data capture gateway",
+  "endpoints": {
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "response": {
+        "role": "Senses",
+        "status": "online"
+      }
+    },
+    "ingest_manual": {
+      "path": "/api/v1/manual/ingest",
+      "method": "POST",
+      "headers": {
+        "X-API-Key": "required",
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "source": "string (optional, default: 'manual')",
+        "event_type": "string (optional, default: 'agent_thought')",
+        "payload": "object (required)"
+      },
+      "response": {
+        "status": "captured",
+        "ref": "uuid (raw_lake record ID)"
+      }
+    },
+    "system_vitals": {
+      "path": "/api/v1/system/vitals",
+      "method": "GET",
+      "headers": {
+        "X-API-Key": "required"
+      },
+      "response": {
+        "cpu": {
+          "percent": "number",
+          "cores": "number"
+        },
+        "memory": {
+          "percent": "number",
+          "available_mb": "number"
+        },
+        "disk": {
+          "percent": "number",
+          "free_gb": "number"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "postgresql": {
+      "host": "localhost",
+      "port": 6000,
+      "database": "soma_sensory_lake",
+      "required": true
+    }
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "expected_status_code": 200,
+    "timeout_seconds": 5
+  }
+}

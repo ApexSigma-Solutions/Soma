@@ -1,0 +1,86 @@
+{
+  "contract_version": "1.0.0",
+  "service": "memOS",
+  "description": "Hands Layer - MCP server for context retrieval and actions",
+  "endpoints": {
+    "sse": {
+      "path": "/sse",
+      "method": "GET",
+      "description": "Server-Sent Events endpoint for MCP communication"
+    },
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "response": {
+        "status": "ok",
+        "services": {
+          "neo4j": "connected|disconnected",
+          "redis": "connected|disconnected",
+          "lancedb": "connected|disconnected"
+        }
+      }
+    }
+  },
+  "mcp_tools": {
+    "ingest_signal": {
+      "description": "Ingest a signal into the Soma ecosystem",
+      "parameters": {
+        "content": "string (required)",
+        "source": "string (optional, default: 'manual')",
+        "metadata": "object (optional)"
+      }
+    },
+    "query_brain": {
+      "description": "Query the Neo4j brain for relevant information",
+      "parameters": {
+        "query": "string (required)",
+        "limit": "number (optional, default: 10)",
+        "filters": "object (optional)"
+      }
+    },
+    "get_context": {
+      "description": "Get context for a specific entity or topic",
+      "parameters": {
+        "entity": "string (required)",
+        "timeframe": "string (optional, e.g., 'last_week')"
+      }
+    }
+  },
+  "dependencies": {
+    "neo4j": {
+      "uri": "bolt://localhost:7687",
+      "user": "neo4j",
+      "required": true
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6380,
+      "required": true
+    },
+    "lancedb": {
+      "uri": "/opt/soma/memory/lancedb",
+      "table": "soma_memories",
+      "required": true
+    },
+    "ollama": {
+      "host": "localhost",
+      "port": 11434,
+      "required": true
+    }
+  },
+  "storage": {
+    "neo4j": {
+      "purpose": "Structured knowledge graph storage",
+      "node_types": ["AtomicFact", "Entity", "Concept"]
+    },
+    "lancedb": {
+      "purpose": "Vector similarity search",
+      "embedding_dimensions": 1024
+    }
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "expected_status_code": 200,
+    "timeout_seconds": 5
+  }
+}

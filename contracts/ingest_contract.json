@@ -1,0 +1,91 @@
+{
+  "contract_version": "1.0.0",
+  "service": "InGest",
+  "description": "Stomach Layer - Data processing and SimpleMem Stage 1",
+  "endpoints": {
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "response": {
+        "status": "ok|degraded",
+        "upstream": "ok|error",
+        "neo4j": {
+          "neo4j_reachable": "boolean"
+        },
+        "circuit_breaker": {
+          "state": "closed|open|half_open",
+          "failure_count": "number"
+        },
+        "saga": {
+          "stuck_transactions": "number"
+        }
+      }
+    },
+    "metrics": {
+      "path": "/metrics",
+      "method": "GET",
+      "response_type": "text/plain (Prometheus format)"
+    }
+  },
+  "input_schema": {
+    "source": "Postgres raw_lake table",
+    "columns": {
+      "id": "uuid",
+      "source": "string",
+      "event_type": "string",
+      "payload": "jsonb",
+      "client_ip": "string",
+      "processed": "boolean"
+    }
+  },
+  "output_schema": {
+    "target": "Redis Stream (soma_working_memory)",
+    "message_format": {
+      "source_id": "uuid (raw_lake record ID)",
+      "fact_units": "array of atomic facts",
+      "metadata": {
+        "source": "string",
+        "event_type": "string",
+        "entropy": "number (0.0-1.0)",
+        "timestamp": "ISO 8601"
+      }
+    }
+  },
+  "processing_pipeline": {
+    "stages": [
+      "Entropy Gate (H > 0.35)",
+      "Coreference Resolution (coreferee)",
+      "Temporal Anchoring (dateparser)",
+      "Atomic Fact Synthesis"
+    ]
+  },
+  "dependencies": {
+    "postgresql": {
+      "host": "localhost",
+      "port": 6000,
+      "database": "soma_sensory_lake",
+      "required": true
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6380,
+      "required": true
+    },
+    "ollama": {
+      "host": "localhost",
+      "port": 11434,
+      "model": "qwen3-embedding:0.6B-F16",
+      "required": true
+    }
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "expected_status_code": 200,
+    "timeout_seconds": 5
+  },
+  "failure_handling": {
+    "dead_letter_queue": "Postgres table: ingest_failures",
+    "circuit_breaker_threshold": 3,
+    "health_degradation_timeout": "5 minutes"
+  }
+}

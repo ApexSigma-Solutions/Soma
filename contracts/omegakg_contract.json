@@ -1,0 +1,96 @@
+{
+  "contract_version": "1.0.0",
+  "service": "OmegaKG",
+  "description": "Brain Layer - Graph persistence and vector embeddings",
+  "endpoints": {
+    "capture_server": {
+      "path": "/",
+      "method": "GET/POST",
+      "port": 8765,
+      "description": "Main capture server endpoint for webhook ingestion"
+    },
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "response": {
+        "status": "ok"
+      }
+    }
+  },
+  "input_schema": {
+    "source": "Redis Stream (soma_working_memory)",
+    "consumer_group": "brain_consumer_group",
+    "message_fields": {
+      "source_id": "uuid",
+      "fact_units": "array",
+      "metadata": "object"
+    }
+  },
+  "output_schema": {
+    "target": "Neo4j Graph Database",
+    "node_types": {
+      "AtomicFact": {
+        "properties": {
+          "text": "string",
+          "source": "string",
+          "source_id": "uuid",
+          "embedding": "array (1024 or 768 dimensions)",
+          "entropy": "number",
+          "created_at": "datetime"
+        }
+      },
+      "ChatSession": {
+        "properties": {
+          "session_id": "string",
+          "started_at": "datetime"
+        }
+      }
+    }
+  },
+  "workers": {
+    "capture_server": {
+      "module": "omega_kg.capture_server",
+      "port": 8765
+    },
+    "embedding_worker": {
+      "module": "omega_kg.workers.embedding_worker",
+      "description": "Generates embeddings using BGE-M3 or similar"
+    },
+    "vector_index_worker": {
+      "module": "omega_kg.workers.vector_index_worker",
+      "description": "Updates vector indices for similarity search"
+    },
+    "conversation_worker": {
+      "module": "omega_kg.workers.conversation_worker",
+      "description": "Processes conversation data"
+    }
+  },
+  "dependencies": {
+    "neo4j": {
+      "uri": "bolt://localhost:7687",
+      "user": "neo4j",
+      "required": true
+    },
+    "redis": {
+      "host": "localhost",
+      "port": 6380,
+      "required": true
+    },
+    "postgresql": {
+      "host": "localhost",
+      "port": 6000,
+      "database": "omega_kg_stable",
+      "required": true
+    }
+  },
+  "embedding_config": {
+    "model": "BGE-M3",
+    "dimensions": 1024,
+    "storage": "Neo4j vector property"
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "expected_status_code": 200,
+    "timeout_seconds": 10
+  }
+}
