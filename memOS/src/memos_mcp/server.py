@@ -41,7 +41,9 @@ from memos_mcp.tools.memory import (
     mark_significant,
     promote_memory,
 )
+
 # Import Soma-specific tools
+from memos_mcp.tools.soma_tools import ingest_signal, query_brain, promote_to_codex
 
 # Import Pulse Worker
 from memos_mcp.workers import JanitorWorker, ConsolidationThresholds

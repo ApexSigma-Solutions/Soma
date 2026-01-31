@@ -42,15 +42,15 @@ services:
   #   networks:
   #     - default
   #   environment:
-  #     - NEO4J_URI=bolt://apexsigma.neo4j.stable:7687
+  #     - NEO4J_URI=bolt://apexsigma.neo4j.soma:7687
   #     - NEO4J_USER=neo4j
   #     - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
-  #     - POSTGRES_HOST=apexsigma.postgres.stable
+  #     - POSTGRES_HOST=apexsigma.postgres.soma
   #     - POSTGRES_PORT=5432
   #     - POSTGRES_USER=omega_user
   #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
   #     - POSTGRES_DB=omega_kg_stable
-  #     - REDIS_URL=redis://apexsigma.redis:6379/0
+  #     - REDIS_URL=redis://apexsigma.redis.soma:6379/0
   #     - SOMA_INTERNAL_KEY=${SOMA_INTERNAL_KEY:-soma_dev_key}
   #     - LINEAR_WEBHOOK_SECRET=${LINEAR_WEBHOOK_SECRET:-}
   #     - ZERO_TRUST_REQUIRED=false
@@ -76,80 +76,80 @@ services:
   # NOTE: InGest (Dagster) now runs NATIVELY on host for Windows I/O performance
   # Start via: poetry run dagster dev -h 0.0.0.0 -p 3000
   # Dagster UI will be accessible at http://localhost:3000 and via Tailscale
-  # 
-  # ingest-daemon:
-  #   container_name: InGest
-  #   build:
-  #     context: ./InGest
-  #     dockerfile: Dockerfile
-  #   entrypoint: ["dagster-daemon", "run"]
-  #   user: root
-  #   networks:
-  #     - default
-  #   models:
-  #     embedding-model:
-  #       endpoint_var: EMBED_BASE_URL
-  #       model_var: EMBED_MODEL
-  #   environment:
-  #     - DAGSTER_HOME=/opt/dagster/dagster_home
-  #     - DAGSTER_POSTGRES_USER=omega_user
-  #     - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
-  #     - DAGSTER_POSTGRES_DB=omega_kg_stable
-  #     - DAGSTER_POSTGRES_HOST=apexsigma.postgres.stable
-  #     - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.stable:5432/omega_kg_stable
-  #     # NOTE: EMBED_BASE_URL and EMBED_MODEL are injected by the 'models' block
-  #     - EMBED_API_KEY=ignore-me
-  #     - NANO_GPT_API_KEY=${NANO_GPT_API_KEY:-}
-  #     - LINEAR_WEBHOOK_SECRET=${LINEAR_WEBHOOK_SECRET:-}
-  #     - SOMA_INTERNAL_KEY=${SOMA_INTERNAL_KEY:-soma_dev_key}
-  #     - OMEGAKG_API_URL=http://omegakg:8765
-  #     - LANCEDB_URI=/opt/soma/memory/lancedb
-  #     - LANCEDB_TABLE=soma_memories
-  #   volumes:
-  #     - ./InGest:/opt/dagster/app
-  #     - ./InGest/dagster_home:/opt/dagster/dagster_home
-  #     - lancedb_data:/opt/soma/memory/lancedb
-  #     - ./data/logs/stomach:/opt/dagster/logs
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #   restart: always
-  # 
-  # ingest-web:
-  #   container_name: InGest-ui
-  #   build:
-  #     context: ./InGest
-  #     dockerfile: Dockerfile
-  #   entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
-  #   user: root
-  #   ports:
-  #     - "3000:3000"
-  #   networks:
-  #     - default
-  #   environment:
-  #     - DAGSTER_HOME=/opt/dagster/dagster_home
-  #     - DAGSTER_POSTGRES_USER=omega_user
-  #     - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
-  #     - DAGSTER_POSTGRES_DB=omega_kg_stable
-  #     - DAGSTER_POSTGRES_HOST=apexsigma.postgres.stable
-  #     - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.stable:5432/omega_kg_stable
-  #     - LANCEDB_URI=/opt/soma/memory/lancedb
-  #   volumes:
-  #     - ./InGest:/opt/dagster/app
-  #     - ./InGest/dagster_home:/opt/dagster/dagster_home
-  #     - lancedb_data:/opt/soma/memory/lancedb:ro
-  #   depends_on:
-  #     ingest-daemon:
-  #       condition: service_started
-  #     postgres:
-  #       condition: service_healthy
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #   restart: unless-stopped
+  
+  ingest-daemon:
+    container_name: InGest
+    build:
+      context: ./InGest
+      dockerfile: Dockerfile
+    entrypoint: ["dagster-daemon", "run"]
+    user: root
+    networks:
+      - default
+    models:
+      embedding-model:
+        endpoint_var: EMBED_BASE_URL
+        model_var: EMBED_MODEL
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - DAGSTER_POSTGRES_USER=omega_user
+      - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+      - DAGSTER_POSTGRES_DB=omega_kg_stable
+      - DAGSTER_POSTGRES_HOST=apexsigma.postgres.soma
+      - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.soma:5432/omega_kg_stable
+      # NOTE: EMBED_BASE_URL and EMBED_MODEL are injected by the 'models' block
+      - EMBED_API_KEY=ignore-me
+      - NANO_GPT_API_KEY=${NANO_GPT_API_KEY:-}
+      - LINEAR_WEBHOOK_SECRET=${LINEAR_WEBHOOK_SECRET:-}
+      - SOMA_INTERNAL_KEY=${SOMA_INTERNAL_KEY:-soma_dev_key}
+      - OMEGAKG_API_URL=http://omegakg:8765
+      - LANCEDB_URI=/opt/soma/memory/lancedb
+      - LANCEDB_TABLE=soma_memories
+    volumes:
+      - ./InGest:/opt/dagster/app
+      - ./InGest/dagster_home:/opt/dagster/dagster_home
+      - lancedb_data:/opt/soma/memory/lancedb
+      - ./data/logs/stomach:/opt/dagster/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+  
+  ingest-web:
+    container_name: InGest-ui
+    build:
+      context: ./InGest
+      dockerfile: Dockerfile
+    entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
+    user: root
+    ports:
+      - "3000:3000"
+    networks:
+      - default
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - DAGSTER_POSTGRES_USER=omega_user
+      - DAGSTER_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
+      - DAGSTER_POSTGRES_DB=omega_kg_stable
+      - DAGSTER_POSTGRES_HOST=apexsigma.postgres.soma
+      - DAGSTER_PG_URL=postgresql://omega_user:${POSTGRES_PASSWORD:-omega_dev_password}@apexsigma.postgres.soma:5432/omega_kg_stable
+      - LANCEDB_URI=/opt/soma/memory/lancedb
+    volumes:
+      - ./InGest:/opt/dagster/app
+      - ./InGest/dagster_home:/opt/dagster/dagster_home
+      - lancedb_data:/opt/soma/memory/lancedb:ro
+    depends_on:
+      ingest-daemon:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
 
   # ===========================================================================
   # THE HANDS (memOS) - Context Bridge & Retrieval
@@ -168,15 +168,15 @@ services:
         endpoint_var: EMBED_BASE_URL
         model_var: EMBED_MODEL
     environment:
-      - REDIS_URL=redis://apexsigma.redis:6379/0
-      - MEMOS_REDIS_HOST=apexsigma.redis
+      - REDIS_URL=redis://apexsigma.redis.soma:6379/0
+      - MEMOS_REDIS_HOST=apexsigma.redis.soma
       - MEMOS_REDIS_PORT=6379
-      - POSTGRES_HOST=apexsigma.postgres.stable
+      - POSTGRES_HOST=apexsigma.postgres.soma
       - POSTGRES_PORT=5432
       - POSTGRES_USER=omega_user
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-omega_dev_password}
       - POSTGRES_DB=omega_kg_stable
-      - NEO4J_URI=bolt://apexsigma.neo4j.stable:7687
+      - NEO4J_URI=bolt://apexsigma.neo4j.soma:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
       - LANCEDB_URI=/opt/soma/memory/lancedb
@@ -200,7 +200,7 @@ services:
   # ===========================================================================
   neo4j:
     image: neo4j:5-community
-    container_name: apexsigma.neo4j.stable
+    container_name: apexsigma.neo4j.soma
     ports:
       - "0.0.0.0:7474:7474"  # Browser UI - exposed for Tailscale
       - "0.0.0.0:7687:7687"  # Bolt protocol - exposed for Tailscale
@@ -226,7 +226,7 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: apexsigma.postgres.stable
+    container_name: apexsigma.postgres.soma
     ports:
       - "0.0.0.0:6000:5432"  # Exposed on all interfaces for Tailscale access
     networks:
@@ -248,7 +248,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: apexsigma.redis
+    container_name: apexsigma.redis.soma
     ports:
       - "6380:6379"
     networks:

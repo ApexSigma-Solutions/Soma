@@ -173,7 +173,7 @@ function Invoke-ServiceHealthCheck {
                 return $true
             }
         } catch {
-            Write-WarnLog "Attempt $attempt/$MaxRetries: $ServiceName not ready yet..."
+            Write-WarnLog "Attempt ${attempt}/${MaxRetries}: $ServiceName not ready yet..."
         }
         
         Start-Sleep -Seconds $RetryInterval
@@ -258,7 +258,7 @@ function Initialize-Databases {
                     throw "$db failed to start"
                 }
             } catch {
-                Write-ErrorLog "Failed to start $db: $($_.Exception.Message)"
+                    Write-ErrorLog "Failed to start ${db}: $($_.Exception.Message)"
                 throw
             }
         }
@@ -310,7 +310,7 @@ function Invoke-AlembicMigrations {
                     Write-WarnLog "$service migrations failed with exit code $($result.ExitCode)"
                 }
             } catch {
-                Write-WarnLog "Failed to run migrations for $service: $($_.Exception.Message)"
+                Write-WarnLog "Failed to run migrations for ${service}: $($_.Exception.Message)"
             }
         } else {
             Write-WarnLog "No alembic.ini found for $service, skipping migrations"
@@ -349,7 +349,7 @@ function Validate-ServiceContracts {
             return $false
         }
     } catch {
-        Write-WarnLog "Failed to validate contract for $ServiceName: $($_.Exception.Message)"
+        Write-WarnLog "Failed to validate contract for ${ServiceName}: $($_.Exception.Message)"
         return $false
     }
 }
@@ -753,7 +753,7 @@ try {
         Write-WarnLog "WARNING: $failedCount service(s) failed to start"
         Write-WarnLog "========================================"
         foreach ($svc in $global:ServicesFailed.Keys) {
-            Write-WarnLog "  - $svc: $($global:ServicesFailed[$svc])"
+                Write-WarnLog "  - ${svc}: $($global:ServicesFailed[$svc])"
         }
         Write-WarnLog "========================================"
         Write-InfoLog ""

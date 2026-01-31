@@ -11,7 +11,6 @@ import os
 from typing import Any, Dict
 
 import httpx
-from mcp import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,6 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "omega_dev_password")
 # ============================================================================
 # Tool: ingest_signal
 # ============================================================================
-@Tool()
 async def ingest_signal(
     source: str,
     event_type: str,
@@ -70,7 +68,6 @@ async def ingest_signal(
 # ============================================================================
 # Tool: query_brain
 # ============================================================================
-@Tool()
 async def query_brain(cypher: str, limit: int = 10) -> str:
     """Search the Neo4j knowledge graph (read-only).
 
@@ -120,7 +117,6 @@ async def query_brain(cypher: str, limit: int = 10) -> str:
 # ============================================================================
 # Tool: promote_to_codex
 # ============================================================================
-@Tool()
 async def promote_to_codex(
     constraint_type: str,
     rule: str,

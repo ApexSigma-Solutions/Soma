@@ -74,6 +74,47 @@ def validate_node_label(label: str) -> str:
         )
 
 
+def validate_edge_type(edge_type: str) -> str:
+    """
+    Validate and sanitize an edge type to prevent Cypher injection.
+
+    Args:
+        edge_type: Proposed edge type from request
+
+    Returns:
+        Validated edge type
+
+    Raises:
+        HTTPException: If edge type is not valid
+    """
+    # Whitelist of valid edge types
+    VALID_EDGE_TYPES = [
+        "CONTAINS",
+        "RELATED_TO",
+        "TRIGGERS",
+        "DEPENDS_ON",
+        "PARENT",
+        "CHILD",
+        "BELONGS_TO",
+        "BELONGED_BY",
+        "CREATED_BY",
+        "MODIFIED_BY",
+        "HAS_PROPERTY",
+    ]
+
+    if edge_type not in VALID_EDGE_TYPES:
+        logger.error(
+            f"Attempted to use invalid edge type: {edge_type}. "
+            f"This may indicate a Cypher injection attempt."
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid edge type: {edge_type}. "
+            f"Allowed types: {', '.join(VALID_EDGE_TYPES)}",
+        )
+    return edge_type
+
+
 # ==============================================================================
 
 # --- CONFIGURATION ---
@@ -357,7 +398,7 @@ async def store_embedding(
 
         # Update existing node or create generic MemoryAtom
         # We try to match by raw_id/digest_id
-        result = await session.run(
+        result = await session.run(  # type: ignore[arg-type]
             f"""
             MERGE (n:{validated_label} {{raw_id: $raw_id}})
             SET n.embedding = $embedding,
@@ -429,7 +470,7 @@ async def _store_graph(request: CommitRequest) -> Dict:
         for node in request.digest.nodes:
             # Dynamically build property SET clause
             props = {**node.properties, "digest_id": request.raw_id}
-            result = await session.run(
+            result = await session.run(  # type: ignore[arg-type]
                 f"""
                 MERGE (n:{node.label} {{id: $node_id, digest_id: $digest_id}})
                 SET n += $props
@@ -445,10 +486,12 @@ async def _store_graph(request: CommitRequest) -> Dict:
             node_count += 1
 
             # Link to root MemoryAtom
-            await session.run(
+            # SECURITY FIX: Validate node.label before using in Cypher
+            validated_node_label = validate_node_label(node.label)
+            await session.run(  # type: ignore[arg-type]
                 f"""
                 MATCH (m:MemoryAtom {{raw_id: $raw_id}})
-                MATCH (n:{node.label} {{id: $node_id, digest_id: $digest_id}})
+                MATCH (n:{validated_node_label} {{id: $node_id, digest_id: $digest_id}})
                 MERGE (m)-[:CONTAINS]->(n)
                 """,
                 raw_id=request.raw_id,
@@ -459,11 +502,13 @@ async def _store_graph(request: CommitRequest) -> Dict:
         # 3. Create flexible edges (new schema)
         for edge in request.digest.edges:
             # Find source and target nodes by their digest IDs
-            await session.run(
+            # SECURITY FIX: Validate edge.type before using in Cypher
+            validated_edge_type = validate_edge_type(edge.type)
+            await session.run(  # type: ignore[arg-type]
                 f"""
                 MATCH (src {{id: $source_id, digest_id: $digest_id}})
                 MATCH (tgt {{id: $target_id, digest_id: $digest_id}})
-                MERGE (src)-[r:{edge.type}]->(tgt)
+                MERGE (src)-[r:{validated_edge_type}]->(tgt)
                 SET r += $props
                 """,
                 source_id=edge.source_id,
