@@ -17,6 +17,7 @@ import redis.asyncio as redis
 import structlog
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 # --- Configuration ---
@@ -61,6 +62,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="Soma.InGress (The Senses)", version="1.1", lifespan=lifespan)
+
+# --- CORS Configuration for Cortex Dashboard & Chrome Extension ---
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Dev mode - allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 async def persist_to_lake(source: str, event_type: str, payload: Dict[str, Any], client_ip: str = "unknown") -> str:

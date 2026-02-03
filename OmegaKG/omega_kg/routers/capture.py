@@ -156,8 +156,8 @@ async def capture_conversation(
 
         # Direct insert to raw_lake table
         insert_stmt = text("""
-            INSERT INTO raw_lake (source, event_type, payload, client_ip, ingested_at, processed, failed, retry_count)
-            VALUES (:source, :event_type, :payload::jsonb, :client_ip, NOW(), FALSE, FALSE, 0)
+            INSERT INTO raw_lake (source, event_type, payload, client_ip, ingested_at, processing_status)
+            VALUES (:source, :event_type, :payload::jsonb, :client_ip, NOW(), 'PENDING')
             ON CONFLICT DO NOTHING
             RETURNING id
         """)

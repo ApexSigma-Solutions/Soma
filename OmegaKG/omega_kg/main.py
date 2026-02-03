@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase, basic_auth
 from sqlalchemy import text
@@ -139,11 +139,16 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:*",
-        "http://127.0.0.1:*",
-        "http://sigma-desktop:*",  # Tailscale hostname
+        "http://localhost:5173",  # Cortex Dashboard
+        "http://localhost:8765",  # OmegaKG
+        "http://localhost:8000",  # InGress
+        "http://localhost:8768",  # memOS
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8765",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8768",
     ],
-    allow_origin_regex=r"http://100\..*",  # Tailscale IP range (100.x.x.x)
+    allow_origin_regex=r"(http://localhost:\d+|http://127\.0\.0\.1:\d+|chrome-extension://.*|http://100\..*)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

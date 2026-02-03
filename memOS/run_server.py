@@ -49,6 +49,17 @@ if __name__ == "__main__":
 
             wrapper_app = FastAPI(lifespan=wrapper_lifespan)
 
+            # Add CORS middleware for Cortex Dashboard & Chrome Extension
+            from fastapi.middleware.cors import CORSMiddleware
+
+            wrapper_app.add_middleware(
+                CORSMiddleware,
+                allow_origins=["*"],  # Dev mode - allow all origins
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+
             # Add Health Check
             @wrapper_app.get("/health")
             async def health_check():

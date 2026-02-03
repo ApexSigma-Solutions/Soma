@@ -20,6 +20,14 @@ from typing import Any, Dict, Optional
 import asyncpg
 import redis.asyncio as redis
 import structlog
+import sys
+
+# Add InGest src to path for circuit breaker import
+ingest_src = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
+if ingest_src not in sys.path:
+    sys.path.insert(0, ingest_src)
+
+from ingest_llm_as.core.circuit_breaker import CircuitBreaker
 
 # =============================================================================
 # Configuration (All via env vars for future UI config)
@@ -170,6 +178,9 @@ class Stomach:
         self.pool: Optional[asyncpg.Pool] = None
         self.redis: Optional[redis.Redis] = None
         self._running = True
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=5, timeout_seconds=60, name="stomach_poller"
+        )
 
     async def initialize(self) -> None:
         """Initialize database and Redis connections."""
@@ -284,8 +295,8 @@ class Stomach:
                 """
                 SELECT id, source, event_type, payload, retry_count 
                 FROM raw_lake 
-                WHERE processed = FALSE AND failed = FALSE AND retry_count < $1
-                ORDER BY ingested_at ASC
+                WHERE processing_status = 'PENDING' AND retry_count < $1
+                ORDER BY created_at ASC
                 LIMIT $2
                 """,
                 MAX_RETRIES,
@@ -303,9 +314,9 @@ class Stomach:
                         # Successfully digested - emit to stream
                         await self.emit_to_redis(digest)
 
-                    # Mark as processed (even if filtered by entropy gate)
+                    # Mark as digested (even if filtered by entropy gate)
                     await conn.execute(
-                        "UPDATE raw_lake SET processed=TRUE, processed_at=NOW() WHERE id=$1",
+                        "UPDATE raw_lake SET processing_status='DIGESTED', processed_at=NOW() WHERE id=$1",
                         r["id"],
                     )
 
@@ -320,11 +331,11 @@ class Stomach:
                     await conn.execute(
                         """
                         UPDATE raw_lake 
-                        SET retry_count=$1, failed=$2, last_error=$3 
+                        SET retry_count=$1, processing_status=$2, last_error=$3 
                         WHERE id=$4
                         """,
                         new_retries,
-                        is_failed,
+                        "ERROR" if is_failed else "PENDING",
                         error_msg,
                         r["id"],
                     )
@@ -345,9 +356,29 @@ class Stomach:
 
         while self._running:
             try:
+                # Check circuit breaker state
+                if not self.circuit_breaker.is_closed():
+                    state = self.circuit_breaker.get_state()
+                    log.warning(
+                        "circuit_breaker_open",
+                        state=state.value,
+                        status=self.circuit_breaker.get_status(),
+                    )
+                    await asyncio.sleep(POLL_INTERVAL)
+                    continue
+
+                # Execute poll cycle
                 await self.poll_cycle()
+                self.circuit_breaker.record_success()
+
             except Exception as e:
-                log.error("poll_cycle_error", error=str(e))
+                self.circuit_breaker.record_failure()
+                log.error(
+                    "poll_cycle_error",
+                    error=str(e),
+                    circuit_state=self.circuit_breaker.get_state().value,
+                    failure_count=self.circuit_breaker.get_failure_count(),
+                )
 
             await asyncio.sleep(POLL_INTERVAL)
 
