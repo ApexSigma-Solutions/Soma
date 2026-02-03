@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Request, Security, Depends
-from sqlalchemy import text, select, desc
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from omega_kg.auth_utils import (
@@ -28,13 +28,10 @@ from omega_kg.database.ingest_session import get_ingest_db
 from omega_kg.models.capture import CaptureResponse, ConversationData, Token
 from pydantic import BaseModel
 
-# Use RawIngestion from InGest-LLM for consolidated storage
-from omega_kg.models.raw_storage import RawIngestion
 from omega_kg.parsers import parse_html_content
 from omega_kg.settings import settings
 from omega_kg.utils.capture_utils import (
     generate_conversation_hash,
-    generate_conversation_uuid,
 )
 from omega_kg.vector_store import get_vector_store
 
@@ -144,33 +141,49 @@ async def capture_conversation(
             status_code=422, detail="No messages provided and HTML parsing failed."
         )
 
-    # 5. STORAGE to raw_ingestions table
+    # 5. STORAGE to raw_lake table (unified data lake)
     try:
         conv_hash = generate_conversation_hash(data)
 
-        # Map platform to source_type with prefix for filtering
-        source_type = (
+        # Map platform to source/event_type for unified raw_lake
+        source = "chrome"  # All Chrome extension captures
+        event_type = (
             f"conversation-{data.platform}" if data.platform else "conversation-unknown"
         )
 
-        # Create Raw Record using RawIngestion model
-        raw_record = RawIngestion(
-            ingestion_id=generate_conversation_uuid(data),
-            source_type=source_type,
-            raw_payload=data.model_dump(mode="json"),
-            captured_at=datetime.utcnow(),
-            processed=False,
-            processing_attempts=0,
-        )
+        # Get client IP from request
+        client_ip = request.client.host if request.client else None
 
-        db_session.add(raw_record)
+        # Direct insert to raw_lake table
+        insert_stmt = text("""
+            INSERT INTO raw_lake (source, event_type, payload, client_ip, ingested_at, processed, failed, retry_count)
+            VALUES (:source, :event_type, :payload::jsonb, :client_ip, NOW(), FALSE, FALSE, 0)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        """)
+
+        result = await db_session.execute(
+            insert_stmt,
+            {
+                "source": source,
+                "event_type": event_type,
+                "payload": data.model_dump_json(),
+                "client_ip": client_ip,
+            },
+        )
         await db_session.commit()
 
-        logger.info(f"Raw conversation captured: {conv_hash} to raw_ingestions table.")
+        row = result.fetchone()
+        if row:
+            logger.info(
+                f"Raw conversation captured to raw_lake: {conv_hash} (id: {row[0]})"
+            )
+        else:
+            logger.info(f"Duplicate conversation ignored: {conv_hash}")
 
         return CaptureResponse(
             success=True,
-            file_path="[DB STORAGE]",
+            file_path="[RAW_LAKE]",
             nodes_created=0,
             message=f"Successfully queued conversation {conv_hash} for processing.",
         )
@@ -179,7 +192,7 @@ async def capture_conversation(
         logger.info(f"Duplicate conversation captured: {conv_hash}. Ignoring.")
         return CaptureResponse(
             success=True,
-            file_path="[DB STORAGE]",
+            file_path="[RAW_LAKE]",
             nodes_created=0,
             message=f"Conversation {conv_hash} already exists. Ignored.",
         )
@@ -203,31 +216,34 @@ async def get_recent_captures(
     _token_payload: Dict[str, Any] = Security(validate_access_token),
 ) -> List[CaptureResponse]:
     """
-    Get the most recent captured conversations from raw_ingestions table.
-    Filters for source_type starting with 'conversation-' to exclude other ingestion types.
+    Get the most recent captured conversations from raw_lake table.
+    Filters for event_type starting with 'conversation-' to exclude other ingestion types.
     """
     try:
-        stmt = (
-            select(RawIngestion).order_by(desc(RawIngestion.captured_at)).limit(limit)
-        )
-        result = await db_session.execute(stmt)
-        raw_ingestions = result.scalars().all()
+        stmt = text("""
+            SELECT id, source, event_type, ingested_at, payload
+            FROM raw_lake
+            WHERE event_type LIKE 'conversation-%'
+            ORDER BY ingested_at DESC
+            LIMIT :limit
+        """)
+        result = await db_session.execute(stmt, {"limit": limit})
+        rows = result.fetchall()
 
         response = []
-        for rec in raw_ingestions:
-            # Extract platform from source_type (e.g., "conversation-Perplexity" -> "Perplexity")
+        for row in rows:
+            # Extract platform from event_type (e.g., "conversation-Perplexity" -> "Perplexity")
             platform = (
-                rec.source_type.replace("conversation-", "")
-                if rec.source_type
+                row.event_type.replace("conversation-", "")
+                if row.event_type
                 else "unknown"
             )
-            # Basic adaptation to CaptureResponse model for UI display
             response.append(
                 CaptureResponse(
                     success=True,
-                    file_path=f"db://{rec.ingestion_id}",
+                    file_path=f"raw_lake://{row.id}",
                     nodes_created=0,
-                    message=f"Captured via {platform} at {rec.captured_at}",
+                    message=f"Captured via {platform} at {row.ingested_at}",
                 )
             )
 
@@ -248,13 +264,15 @@ async def get_omega_stats(
     from omega_kg.database.graph import graph_driver
 
     try:
-        # 1. Capture Counts (PostgreSQL)
-        total_q = select(text("COUNT(*)")).select_from(text("raw_ingestions"))
-        recent_q = (
-            select(text("COUNT(*)"))
-            .select_from(text("raw_ingestions"))
-            .where(text("captured_at > NOW() - INTERVAL '24 hours'"))
+        # 1. Capture Counts from raw_lake (PostgreSQL)
+        total_q = text(
+            "SELECT COUNT(*) FROM raw_lake WHERE event_type LIKE 'conversation-%'"
         )
+        recent_q = text("""
+            SELECT COUNT(*) FROM raw_lake 
+            WHERE event_type LIKE 'conversation-%' 
+            AND ingested_at > NOW() - INTERVAL '24 hours'
+        """)
 
         total_r = await db_session.execute(total_q)
         recent_r = await db_session.execute(recent_q)
@@ -262,10 +280,8 @@ async def get_omega_stats(
         total_captures = total_r.scalar() or 0
         recent_24h = recent_r.scalar() or 0
 
-        # 2. Session Count (PostgreSQL)
-        sessions_q = select(text("COUNT(DISTINCT ingestion_id)")).select_from(
-            text("raw_ingestions")
-        )
+        # 2. Session Count (unique sources in raw_lake)
+        sessions_q = text("SELECT COUNT(DISTINCT source) FROM raw_lake")
         sessions_r = await db_session.execute(sessions_q)
         active_sessions = sessions_r.scalar() or 0
 

@@ -57,99 +57,112 @@ $ErrorActionPreference = 'Continue'  # Don't stop on errors - we handle them exp
 $Script:StartTime = Get-Date
 $Script:LogDir = Join-Path $PSScriptRoot "logs"
 $Script:LogFile = Join-Path $Script:LogDir "startup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+
+# Ensure Poetry is in PATH (Common Windows Locations)
+$PoetryPaths = @(
+    "$env:APPDATA\Python\Scripts",
+    "$env:APPDATA\pypoetry\venv\Scripts"
+)
+foreach ($Path in $PoetryPaths) {
+    if ((Test-Path $Path) -and ($env:PATH -notlike "*$Path*")) {
+        $env:PATH = "$Path;$env:PATH"
+        Write-Host "Added $Path to PATH" -ForegroundColor DarkGray
+    }
+}
+
 $Script:ServiceProcesses = @{}  # Track all service processes
 $Script:ServiceHealth = @{}  # Track service health status
 $Script:FailedServices = @()  # Track failed services
 $Script:LogLevelValue = @{
-    'Debug' = 0
-    'Info' = 1
+    'Debug'   = 0
+    'Info'    = 1
     'Warning' = 2
-    'Error' = 3
+    'Error'   = 3
 }[$LogLevel]
 
 # Service configuration with dependencies and retry settings
 $Script:Services = @{
     'Docker-Postgres' = @{
-        Type = 'Docker'
-        Port = 6000
+        Type        = 'Docker'
+        Port        = 6000
         HealthCheck = { Test-DatabaseConnection -Port 6000 }
-        Command = 'docker compose up -d'
-        Priority = 1
-        MaxRetries = 5
-        BaseDelay = 2
+        Command     = 'docker compose up -d'
+        Priority    = 1
+        MaxRetries  = 5
+        BaseDelay   = 2
     }
-    'Docker-Neo4j' = @{
-        Type = 'Docker'
-        Port = 7687
+    'Docker-Neo4j'    = @{
+        Type        = 'Docker'
+        Port        = 7687
         HealthCheck = { Test-Port -Port 7687 }
-        Command = 'docker compose up -d'
-        Priority = 1
-        MaxRetries = 5
-        BaseDelay = 2
+        Command     = 'docker compose up -d'
+        Priority    = 1
+        MaxRetries  = 5
+        BaseDelay   = 2
     }
-    'Docker-Redis' = @{
-        Type = 'Docker'
-        Port = 6380
+    'Docker-Redis'    = @{
+        Type        = 'Docker'
+        Port        = 6380
         HealthCheck = { Test-Port -Port 6380 }
-        Command = 'docker compose up -d'
-        Priority = 1
-        MaxRetries = 5
-        BaseDelay = 2
+        Command     = 'docker compose up -d'
+        Priority    = 1
+        MaxRetries  = 5
+        BaseDelay   = 2
     }
-    'InGress' = @{
-        Type = 'Python'
-        Port = 8000
-        Path = 'InGress'
-        Command = 'poetry run python -m soma_ingress.main'
+    'InGress'         = @{
+        Type           = 'Python'
+        Port           = 8000
+        Path           = 'InGress'
+        Command        = 'poetry run python -m soma_ingress.main'
         HealthEndpoint = 'http://localhost:8000/health'
-        Priority = 2
-        MaxRetries = 10
-        BaseDelay = 3
-        DependsOn = @('Docker-Postgres', 'Docker-Redis')
+        Priority       = 2
+        MaxRetries     = 10
+        BaseDelay      = 3
+        DependsOn      = @('Docker-Postgres', 'Docker-Redis')
     }
-    'InGest' = @{
-        Type = 'Python'
-        Port = 8766
-        Path = 'InGest'
-        Command = 'poetry run python -m ingest_llm_as.main'
+    'InGest'          = @{
+        Type           = 'Python'
+        Port           = 8766
+        Path           = 'InGest'
+        Command        = 'poetry run python -m ingest_llm_as.main'
         HealthEndpoint = 'http://localhost:8766/health'
-        Priority = 3
-        MaxRetries = 10
-        BaseDelay = 3
-        DependsOn = @('Docker-Postgres', 'Docker-Redis', 'InGress')
+        Priority       = 3
+        MaxRetries     = 10
+        BaseDelay      = 3
+        DependsOn      = @('Docker-Postgres', 'Docker-Redis', 'InGress')
     }
-    'OmegaKG' = @{
-        Type = 'Python'
-        Port = 8765
-        Path = 'OmegaKG'
-        Command = 'poetry run python -m omega_kg.main'
+    'OmegaKG'         = @{
+        Type           = 'Python'
+        Port           = 8765
+        Path           = 'OmegaKG'
+        Command        = 'poetry run python -m omega_kg.main'
         HealthEndpoint = 'http://localhost:8765/health'
-        Priority = 3
-        MaxRetries = 10
-        BaseDelay = 3
-        DependsOn = @('Docker-Postgres', 'Docker-Neo4j', 'Docker-Redis')
+        Priority       = 3
+        MaxRetries     = 10
+        BaseDelay      = 3
+        DependsOn      = @('Docker-Postgres', 'Docker-Neo4j', 'Docker-Redis')
     }
-    'memOS' = @{
-        Type = 'Python'
-        Port = 8768
-        Path = 'memOS'
-        Command = 'poetry run python -m memos_mcp.server'
+    'memOS'           = @{
+        Type           = 'Python'
+        Port           = 8768
+        Path           = 'memOS'
+        Command        = 'poetry run python -m memos_mcp.server --sse'
         HealthEndpoint = 'http://localhost:8768/health'
-        Priority = 4
-        MaxRetries = 10
-        BaseDelay = 3
-        DependsOn = @('Docker-Postgres', 'OmegaKG')
+        Priority       = 4
+        MaxRetries     = 10
+        BaseDelay      = 3
+        DependsOn      = @('Docker-Postgres', 'OmegaKG')
     }
-    'Cortex' = @{
-        Type = 'Node'
-        Port = 5173
-        Path = 'Cortex'
-        Command = 'npm run dev'
-        HealthEndpoint = 'http://localhost:5173'
-        Priority = 5
-        MaxRetries = 8
-        BaseDelay = 2
-        DependsOn = @('InGress', 'InGest', 'OmegaKG', 'memOS')
+    'Cortex'          = @{
+        Type           = 'Node'
+        Port           = 6001
+        Path           = 'Cortex'
+        Command        = 'npm run dev'
+        HealthEndpoint = 'http://localhost:6001'
+        Priority       = 5
+        MaxRetries     = 8
+        BaseDelay      = 2
+        DependsOn      = @('InGress', 'InGest', 'OmegaKG', 'memOS')
     }
 }
 
@@ -160,7 +173,7 @@ $Script:Services = @{
 function Write-Log {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Message,
         
         [ValidateSet('Debug', 'Info', 'Warning', 'Error', 'Success')]
@@ -170,10 +183,10 @@ function Write-Log {
     )
     
     $LevelValue = @{
-        'Debug' = 0
-        'Info' = 1
+        'Debug'   = 0
+        'Info'    = 1
         'Warning' = 2
-        'Error' = 3
+        'Error'   = 3
         'Success' = 1
     }[$Level]
     
@@ -500,13 +513,13 @@ function Start-PythonService {
         $LogFile = Join-Path $Script:LogDir "$ServiceName.log"
         
         $ProcessParams = @{
-            FilePath = 'poetry'
-            ArgumentList = $Service.Command.Replace('poetry ', '').Split(' ')
-            WorkingDirectory = $ServicePath
+            FilePath               = 'poetry'
+            ArgumentList           = $Service.Command.Replace('poetry ', '').Split(' ')
+            WorkingDirectory       = $ServicePath
             RedirectStandardOutput = $LogFile
-            RedirectStandardError = Join-Path $Script:LogDir "$ServiceName.error.log"
-            NoNewWindow = -not $ShowConsole
-            PassThru = $true
+            RedirectStandardError  = Join-Path $Script:LogDir "$ServiceName.error.log"
+            NoNewWindow            = -not $ShowConsole
+            PassThru               = $true
         }
         
         Write-Log -Message "Command: $($Service.Command)" -Level Debug -Service $ServiceName
@@ -577,13 +590,13 @@ function Start-NodeService {
         $LogFile = Join-Path $Script:LogDir "$ServiceName.log"
         
         $ProcessParams = @{
-            FilePath = 'npm'
-            ArgumentList = 'run', 'dev'
-            WorkingDirectory = $ServicePath
+            FilePath               = 'npm.cmd'
+            ArgumentList           = 'run', 'dev'
+            WorkingDirectory       = $ServicePath
             RedirectStandardOutput = $LogFile
-            RedirectStandardError = Join-Path $Script:LogDir "$ServiceName.error.log"
-            NoNewWindow = -not $ShowConsole
-            PassThru = $true
+            RedirectStandardError  = Join-Path $Script:LogDir "$ServiceName.error.log"
+            NoNewWindow            = -not $ShowConsole
+            PassThru               = $true
         }
         
         Write-Log -Message "Command: npm run dev" -Level Debug -Service $ServiceName
@@ -873,8 +886,8 @@ function Start-Ecosystem {
     Write-Banner "PHASE 5: STARTING APPLICATION SERVICES"
     
     $ServicesByPriority = $Script:Services.GetEnumerator() | 
-        Where-Object { $_.Value.Type -ne 'Docker' } |
-        Sort-Object { $_.Value.Priority }
+    Where-Object { $_.Value.Type -ne 'Docker' } |
+    Sort-Object { $_.Value.Priority }
     
     foreach ($Entry in $ServicesByPriority) {
         $ServiceName = $Entry.Key
@@ -967,7 +980,7 @@ function Stop-Ecosystem {
     
     # Stop in reverse priority order
     $ServicesByPriority = $Script:ServiceProcesses.GetEnumerator() |
-        Sort-Object { $Script:Services[$_.Key].Priority } -Descending
+    Sort-Object { $Script:Services[$_.Key].Priority } -Descending
     
     foreach ($Entry in $ServicesByPriority) {
         $ServiceName = $Entry.Key
