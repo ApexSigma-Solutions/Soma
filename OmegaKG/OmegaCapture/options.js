@@ -112,7 +112,7 @@ function validateServerUrl(url) {
 async function testServerConnection(apiKey, serverUrl) {
     try {
         console.debug('[Omega_KG] Testing server connection...');
-        const tokenUrl = new URL('/auth/token', serverUrl).toString();
+        const tokenUrl = new URL('/v1/capture/auth/token', serverUrl).toString();
 
         const response = await fetch(tokenUrl, {
             method: 'POST',

@@ -10,7 +10,7 @@ import sys
 
 # Calculate path to InGest/src/ingest_llm_as relative to this file
 ingest_llm_src = (
-    Path(__file__).resolve().parents[4] / "InGest" / "src" / "ingest_llm_as"
+    Path(__file__).resolve().parents[3] / "InGest" / "src" / "ingest_llm_as"
 )
 
 if ingest_llm_src.exists():
@@ -50,6 +50,3 @@ class RawConversation(Base):
 
 # Export RawIngestion for use in other modules
 __all__ = ["RawConversation", "RawIngestion", "_RAW_INGESTION_AVAILABLE"]
-
-# Also export the availability flag
-_RAW_INGESTION_AVAILABLE = None

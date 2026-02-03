@@ -45,7 +45,7 @@ MAX_HTML_SIZE = (
     10 * 1024 * 1024
 )  # 10MB - increased to accommodate larger conversation captures
 
-router = APIRouter(tags=["Capture"])
+router = APIRouter(prefix="/capture", tags=["Capture"])
 
 
 class OmegaStats(BaseModel):
@@ -154,23 +154,7 @@ async def capture_conversation(
         )
 
         # Create Raw Record using RawIngestion model
-        # Use local fallback model if InGest import fails
-        IngestionModel = (
-            RawIngestion if _RAW_INGESTION_AVAILABLE else LocalFallbackIngestion
-        )
-
-        ingestion_id = generate_conversation_uuid(data)
-
-        if IngestionModel is None:
-            logger.error(
-                "RawIngestion model is not available. Check InGest-LLM.as imports."
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Internal Configuration Error: Storage model unavailable",
-            )
-
-        raw_record = IngestionModel(
+        raw_record = RawIngestion(
             ingestion_id=generate_conversation_uuid(data),
             source_type=source_type,
             raw_payload=data.model_dump(mode="json"),
