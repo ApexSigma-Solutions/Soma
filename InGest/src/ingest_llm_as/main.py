@@ -10,6 +10,7 @@ from .api.ecosystem import router as ecosystem_router
 from .api.analysis import router as analysis_router
 from .api.graph_parser import router as graph_parser_router
 from .api.vitals import router as vitals_router
+from .api.config import router as config_router  # TN-CTX-203: Config management
 
 from .api.omega_ingest import router as omega_ingest_router
 
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(analysis_router)
     app.include_router(graph_parser_router)
     app.include_router(vitals_router)
+    app.include_router(config_router)  # TN-CTX-203: Configuration management
     app.include_router(omega_ingest_router)
     app.include_router(eod_logs_router)
     # NOTE: Webhook routers disabled - moved to Soma.Ingress on Port 8000

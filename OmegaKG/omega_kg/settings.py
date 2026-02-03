@@ -13,7 +13,7 @@ load_dotenv(override=True)
 
 from bitwarden_sdk import BitwardenClient
 from bitwarden_sdk.schemas import ClientSettings, DeviceType
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -310,6 +310,16 @@ class Settings(BaseSettings):
         description="Similarity threshold for creating relationships in the percolation engine (0.0-1.0)",
     )
 
+    # --- Runtime Configuration (TN-CTX-203) ---
+    # These are hot-reloadable runtime settings that can be updated without service restart
+    entropy_threshold: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        validation_alias="ENTROPY_THRESHOLD",
+        description="Minimum entropy for fact ingestion (Metabolic Gate) - dynamically adjustable via /api/v1/config",
+    )
+
     # --- Event Processor Configuration (TN-103) ---
     webhook_poll_interval: float = Field(
         5.0,
@@ -376,6 +386,24 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @field_validator("neo4j_password")
+    @classmethod
+    def _validate_neo4j_password(cls, v: str) -> str:
+        """
+        Mirmir EVT-50N42: Prevent special characters in Neo4j password.
+        Special characters in Neo4j password cause auth rate-limiting that locks the Brain.
+
+        Required Value: LMKXBmMtMMRnAdeotR81FEIZ2UFnD0Ec
+        """
+        if not v.isalnum():
+            raise ValueError(
+                "Neo4j password must be alphanumeric only (Mirmir EVT-50N42). "
+                "Special characters cause auth rate-limiting that locks the Brain. "
+                f"Current value contains disallowed characters. "
+                f"Use the required value: LMKXBmMtMMRnAdeotR81FEIZ2UFnD0Ec"
+            )
+        return v
 
     @model_validator(mode="after")
     def _enforce_zero_trust_in_stable(self) -> "Settings":

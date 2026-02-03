@@ -1,0 +1,103 @@
+---
+uid: TNP-CTX-100 
+title: The Organism Integration 
+status: active 
+created: 2026-01-31 
+plan_name: organism-integration 
+plan_description: Transform Cortex Bridge into active conductor via Nervous, Endocrine, and Circulatory systems.
+---
+
+# The Organism Integration
+
+## 1. High-Level Objective
+
+Transform the **Cortex Bridge** from a passive observer into the active conductor of the Soma Organism. This involves implementing three biological subsystems:
+
+1. **Nervous System:** Real-time bi-directional telemetry (SSE).
+2. **Endocrine System:** Dynamic configuration and secret management.
+3. **Circulatory System:** Visualizing the flow of data (peristalsis) through the system.
+
+## 2. "Done Means Done" Criteria (MAR Alignment)
+
+- [ ] **Verifiable Telemetry:** `curl` request to SSE endpoint yields valid JSON system state every 3 seconds.
+- [ ] **Secure Configuration:** Secrets (API Keys) are stored encrypted (Fernet) and returned masked (`****`) in the UI.
+- [ ] **Visual Flow:** Peristalsis component renders live animations triggered by backend events (no static mock data).
+- [ ] **Latency Compliance:** Telemetry aggregation overhead is < 50ms per tick.
+
+## 3. Required Specs (OCPT Integration)
+
+<!-- SPECS_START -->
+
+<!-- Location: D:\projects\Soma\OmegaVault\ApexSigma\Governance\Specs -->
+
+- [[Spec - MAR Protocol (Mandatory Agent Review) v2.0]]
+- [[Spec - ApexSigma Naming & Ontology Conventions]
+- [[Spec - Mirmir Incident Constraints (The Codex)]]
+
+<!-- SPECS_END -->
+
+## 4. Task Breakdown (Atomic TNs)
+
+### Phase 1: The Nervous System (Telemetry)
+
+_Objective: Establish the real-time signal pathway._
+
+- [ ] [TN-CTX-101] **Install Dependencies**
+    - Action: Add `sse-starlette` and `cryptography` to `pyproject.toml`.
+    - Verification: `poetry show` confirms installation.
+- [ ] [TN-CTX-102] **Implement Telemetry Aggregator**
+    - Action: Create `omega/services/telemetry_service.py` aggregating Redis/Neo4j metrics.
+    - Verification: Function returns consolidated JSON in < 50ms.
+- [ ] [TN-CTX-103] **Create SSE Endpoint**
+    - Action: Implement `GET /guardian/telemetry/stream` in `omega/routers/guardian.py`.
+    - Verification: `curl -N localhost:8765/v1/guardian/telemetry/stream` streams data.
+
+### Phase 2: The Endocrine System (Configuration)
+
+_Objective: Enable runtime regulation and chemical balance._
+
+- [ ] [TN-CTX-104] **Define Config Schema & Encryption**
+    - Action: Create `SystemConfig` Pydantic model & Fernet encryption logic.
+    - Verification: Secrets stored encrypted on disk/DB.
+- [ ] [TN-CTX-105] **Implement Config API**
+    - Action: Create `GET/POST /guardian/config`.
+    - Verification: GET returns masked secrets; POST updates runtime state.
+- [ ] [TN-CTX-106] **Frontend Config Page**
+    - Action: Create `ConfigurationPage.tsx` with forms for Entropy/Models.
+    - Verification: UI updates backend successfully.
+
+### Phase 3: The Circulatory System (Visualization)
+
+_Objective: Visualize the metabolic flow._
+
+- [ ] [TN-CTX-107] **Implement Telemetry Hook**
+    - Action: Create `useSystemTelemetry.ts`.
+    - Verification: Hook provides stable `state` object to components.
+- [ ] [TN-CTX-108] **Build Peristaltic Monitor**
+    - Action: Create `PeristalticFlow.tsx` using `recharts` and CSS animations.
+    - Verification: Component renders and animates based on live stream.
+- [ ] [TN-CTX-109] **Dashboard Integration**
+    - Action: Mount components to main Dashboard route.
+    - Verification: Dashboard shows live heartbeat and flow.
+
+## 5. Notes & Context
+
+**Dependencies:**
+
+- **Backend:** `fastapi`, `sse-starlette`, `cryptography`, `pydantic`.
+- **Frontend:** `react`, `typescript`, `lucide-react`, `shadcn/ui`, `recharts`.
+- **Infrastructure:** Redis (Port 6380), Neo4j (Port 7687).
+
+**Code Reference (TN-CTX-103):**
+
+```
+@router.get("/telemetry/stream")
+async def stream_telemetry(request: Request):
+    async def event_generator():
+        while True:
+            if await request.is_disconnected(): break
+            state = await telemetry_service.get_full_state()
+            yield {"event": "system_state", "data": json.dumps(state)}
+            await asyncio.sleep(3.0)
+    return EventSourceResponse(event_generator())
+```

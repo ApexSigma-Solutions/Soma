@@ -7,9 +7,16 @@ Used by start_ecosystem.ps1 to ensure service stability before connecting compon
 
 import json
 import asyncio
+import sys
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import httpx
+
+# Fix Windows console encoding for Unicode characters
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
 class ContractValidator:

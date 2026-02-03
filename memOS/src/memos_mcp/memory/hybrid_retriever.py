@@ -10,6 +10,7 @@ Query complexity (Cq) determines retrieval depth:
 - Complex queries → ~1000 tokens
 """
 
+import asyncio
 from dataclasses import dataclass, field
 import logging
 from datetime import datetime
@@ -124,7 +125,8 @@ class HybridRetriever:
     async def initialize(self) -> None:
         """Initialize LanceDB connection and BM25 index."""
         try:
-            self._db = lancedb.connect(self.config.lancedb_uri)
+            # Run blocking lancedb.connect() in thread pool to avoid blocking event loop
+            self._db = await asyncio.to_thread(lancedb.connect, self.config.lancedb_uri)
 
             if self.config.table_name in self._db.table_names():
                 self._table = self._db.open_table(self.config.table_name)

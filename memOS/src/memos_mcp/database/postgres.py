@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -49,9 +50,25 @@ class PostgresDatabase(Database):
         if not self.database_url:
             self.database_url = f"postgresql://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
 
-        self.engine = create_engine(self.database_url, echo=False)
+        # Don't create engine/tables yet - defer to async_init()
+        self.engine = None
+        self.SessionLocal = None
+        self._initialized = False
+
+    async def async_init(self):
+        """Async initialization - run blocking SQLAlchemy setup in thread pool."""
+        if self._initialized:
+            return
+
+        def _sync_init():
+            engine = create_engine(self.database_url, echo=False)
+            Base.metadata.create_all(bind=engine)
+            return engine
+
+        # Run blocking operations in thread pool
+        self.engine = await asyncio.to_thread(_sync_init)
         self.SessionLocal = sessionmaker(autoflush=False, bind=self.engine)
-        Base.metadata.create_all(bind=self.engine)
+        self._initialized = True
 
     @contextmanager
     def get_session(self) -> Session:

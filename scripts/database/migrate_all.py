@@ -7,9 +7,16 @@ Provides rollback, status, and validation capabilities.
 
 import subprocess
 import sys
+import io
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 import argparse
+
+# Fix Windows console encoding for Unicode characters
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
 class MigrationManager:
@@ -79,7 +86,12 @@ class MigrationManager:
         print(f"Command: {' '.join(command)}")
 
         result = subprocess.run(
-            command, cwd=service_path, capture_output=True, text=True, timeout=120
+            command,
+            cwd=service_path,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=os.environ.copy(),  # Inherit environment variables including SOMA_PG_DSN
         )
 
         print(result.stdout)

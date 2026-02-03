@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import AsyncGenerator, Dict, Any
+from datetime import datetime
+from typing import AsyncGenerator, Dict, Any, Optional
 
 import redis.asyncio as redis
 from fastapi import APIRouter, Request, Query
@@ -81,3 +82,103 @@ async def stream_telemetry(
     """
     logger.info(f"Starting telemetry stream for session: {session_id}")
     return EventSourceResponse(event_generator(request, session_id))
+
+
+# =============================================================================
+# Brain Metrics Telemetry (TN-CTX-201/203)
+# =============================================================================
+
+
+async def brain_metrics_generator(
+    request: Request,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Generate SSE events with Brain (OmegaKG) metrics from Neo4j.
+
+    Queries the knowledge graph for:
+    - Total node count (AtomicFacts)
+    - Average connectivity (relationships per node)
+    - Embedding dimension (768 for Qwen3)
+    """
+    # Check if Neo4j driver is available in app state
+    if not hasattr(request.state, "neo4j_driver") or not request.state.neo4j_driver:
+        yield {
+            "event": "error",
+            "data": json.dumps({"message": "Neo4j not connected"}),
+        }
+        return
+
+    driver = request.state.neo4j_driver
+
+    try:
+        while True:
+            if await request.is_disconnected():
+                logger.info("Client disconnected from brain metrics stream")
+                break
+
+            try:
+                # Query Neo4j for metrics
+                async with driver.session() as session:
+                    # Get total node count
+                    node_result = await session.run(
+                        "MATCH (n) RETURN count(n) as node_count"
+                    )
+                    node_record = await node_result.single()
+                    node_count = node_record["node_count"] if node_record else 0
+
+                    # Get average connectivity
+                    conn_result = await session.run(
+                        """
+                        MATCH ()-[r]->()
+                        RETURN count(r) as rel_count
+                        """
+                    )
+                    conn_record = await conn_result.single()
+                    rel_count = conn_record["rel_count"] if conn_record else 0
+                    avg_connectivity = rel_count / node_count if node_count > 0 else 0
+
+                    # Get embedding dimension from settings (or query)
+                    embedding_dimension = 768  # Qwen3 default
+
+                    # Construct payload
+                    payload = {
+                        "node_count": node_count,
+                        "avg_connectivity": round(avg_connectivity, 2),
+                        "embedding_dimension": embedding_dimension,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+
+                    yield {
+                        "event": "brain_pulse",
+                        "data": json.dumps(payload),
+                    }
+
+            except Exception as e:
+                logger.error(f"Error querying brain metrics: {e}")
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"message": str(e)}),
+                }
+
+            await asyncio.sleep(2.0)  # Update every 2 seconds
+
+    except asyncio.CancelledError:
+        logger.info("Brain metrics stream cancelled")
+    except Exception as e:
+        logger.error(f"Error in brain metrics stream: {e}")
+        yield {
+            "event": "error",
+            "data": json.dumps({"message": str(e)}),
+        }
+
+
+@router.get("/brain")
+async def stream_brain_metrics(request: Request):
+    """
+    Stream real-time Brain (OmegaKG) metrics via SSE.
+
+    Returns:
+        SSE stream with node_count, avg_connectivity, and embedding_dimension.
+    """
+    logger.info("Starting brain metrics stream")
+    return EventSourceResponse(brain_metrics_generator(request))

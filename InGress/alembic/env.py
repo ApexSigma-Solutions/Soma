@@ -22,7 +22,7 @@ target_metadata = None
 # Read DSN from environment with fallback
 DATABASE_URL = os.getenv(
     "SOMA_PG_DSN",
-    "postgresql://omega_user:omega_dev_password@localhost:6000/soma_sensory_lake",
+    "postgresql://omega_user:omega_dev_password@localhost:6000/omega_kg_stable",
 )
 
 # Override the sqlalchemy.url in config

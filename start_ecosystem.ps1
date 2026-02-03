@@ -1,774 +1,1013 @@
-# =============================================================================
-# Soma Ecosystem Master Launcher v2.0
-# =============================================================================
-# Purpose: Orchestrates ALL services across the Soma ecosystem
-# Features:
-#   - Intelligent error handling with retry logic
-#   - Health check verification before service startup
-#   - Alembic migrations for all services
-#   - Poetry with pip fallback for TLS issues
-#   - Proper API contract validation
-#   - Dashboard/Control Room loading
-#
-# Usage:
-#   .\start_ecosystem.ps1                      -> Production (Hidden Windows)
-#   .\start_ecosystem.ps1 -ShowConsole        -> Debugging (Visible Windows)
-#   .\start_ecosystem.ps1 -Persistent         -> Keep all services alive with watchdog
-#   .\start_ecosystem.ps1 -SkipMigrations     -> Skip database migrations
-#   .\start_ecosystem.ps1 -SkipContracts       -> Skip API contract validation
-# =============================================================================
-param (
-    [string]$ProjectRoot = $PSScriptRoot,
+<#
+.SYNOPSIS
+    Soma Ecosystem Orchestrator - Robust Windows 11 Service Launcher
+    
+.DESCRIPTION
+    Launches the complete Soma biomorphic knowledge ecosystem with:
+    - Exponential backoff retry logic
+    - Decoupled service management (failures don't cascade)
+    - Comprehensive verbose logging for debugging
+    - Health monitoring and automatic recovery
+    - Cortex dashboard telemetry integration
+    - Windows 11 optimized PowerShell syntax
+    
+.PARAMETER ShowConsole
+    Show service console windows (for debugging)
+    
+.PARAMETER SkipMigrations
+    Skip database migrations
+    
+.PARAMETER SkipContracts
+    Skip API contract validation
+    
+.PARAMETER Persistent
+    Run watchdog loop with automatic service recovery
+    
+.PARAMETER LogLevel
+    Logging verbosity: Debug, Info, Warning, Error (default: Info)
+    
+.EXAMPLE
+    .\start_ecosystem.ps1
+    Standard startup with hidden consoles
+    
+.EXAMPLE
+    .\start_ecosystem.ps1 -ShowConsole -LogLevel Debug
+    Debug mode with visible windows and verbose logging
+    
+.EXAMPLE
+    .\start_ecosystem.ps1 -Persistent
+    Production mode with continuous health monitoring and auto-recovery
+#>
+
+[CmdletBinding()]
+param(
     [switch]$ShowConsole,
-    [switch]$Persistent,
-    [switch]$SkipCleanup,
     [switch]$SkipMigrations,
     [switch]$SkipContracts,
-    [switch]$SkipInfrastructure,
-    [switch]$SkipMemOS,
-    [switch]$SkipOmegaKG,
-    [switch]$SkipIngest,
-    [switch]$SkipIngress,
-    [switch]$SkipCortex
+    [switch]$Persistent,
+    [ValidateSet('Debug', 'Info', 'Warning', 'Error')]
+    [string]$LogLevel = 'Info'
 )
 
-$ErrorActionPreference = "Stop"
-$ErrorActionPreference = "Continue"
+# ============================================================================
+# CONFIGURATION & INITIALIZATION
+# ============================================================================
 
-$global:ServicesStarted = @{}
-$global:ServicesFailed = @{}
+$ErrorActionPreference = 'Continue'  # Don't stop on errors - we handle them explicitly
+$Script:StartTime = Get-Date
+$Script:LogDir = Join-Path $PSScriptRoot "logs"
+$Script:LogFile = Join-Path $Script:LogDir "startup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$Script:ServiceProcesses = @{}  # Track all service processes
+$Script:ServiceHealth = @{}  # Track service health status
+$Script:FailedServices = @()  # Track failed services
+$Script:LogLevelValue = @{
+    'Debug' = 0
+    'Info' = 1
+    'Warning' = 2
+    'Error' = 3
+}[$LogLevel]
 
-function Write-ColorLog {
-    param(
-        [string]$Message,
-        [string]$Level = "INFO",
-        [string]$Color = "White"
-    )
-    $Timestamp = Get-Date -Format "HH:mm:ss"
-    $LogMessage = "[$Timestamp] [$Level] $Message"
-    Write-Host $LogMessage -ForegroundColor $Color
-    
-    $GlobalLogPath = Join-Path $ProjectRoot "logs"
-    if (-not (Test-Path $GlobalLogPath)) {
-        New-Item -ItemType Directory -Path $GlobalLogPath -Force | Out-Null
+# Service configuration with dependencies and retry settings
+$Script:Services = @{
+    'Docker-Postgres' = @{
+        Type = 'Docker'
+        Port = 6000
+        HealthCheck = { Test-DatabaseConnection -Port 6000 }
+        Command = 'docker compose up -d'
+        Priority = 1
+        MaxRetries = 5
+        BaseDelay = 2
     }
-    $MasterLog = Join-Path $GlobalLogPath "ecosystem_$(Get-Date -Format 'yyyy-MM-dd').log"
-    Add-Content -Path $MasterLog -Value $LogMessage -Encoding UTF8
+    'Docker-Neo4j' = @{
+        Type = 'Docker'
+        Port = 7687
+        HealthCheck = { Test-Port -Port 7687 }
+        Command = 'docker compose up -d'
+        Priority = 1
+        MaxRetries = 5
+        BaseDelay = 2
+    }
+    'Docker-Redis' = @{
+        Type = 'Docker'
+        Port = 6380
+        HealthCheck = { Test-Port -Port 6380 }
+        Command = 'docker compose up -d'
+        Priority = 1
+        MaxRetries = 5
+        BaseDelay = 2
+    }
+    'InGress' = @{
+        Type = 'Python'
+        Port = 8000
+        Path = 'InGress'
+        Command = 'poetry run python -m soma_ingress.main'
+        HealthEndpoint = 'http://localhost:8000/health'
+        Priority = 2
+        MaxRetries = 10
+        BaseDelay = 3
+        DependsOn = @('Docker-Postgres', 'Docker-Redis')
+    }
+    'InGest' = @{
+        Type = 'Python'
+        Port = 8766
+        Path = 'InGest'
+        Command = 'poetry run python -m ingest_llm_as.main'
+        HealthEndpoint = 'http://localhost:8766/health'
+        Priority = 3
+        MaxRetries = 10
+        BaseDelay = 3
+        DependsOn = @('Docker-Postgres', 'Docker-Redis', 'InGress')
+    }
+    'OmegaKG' = @{
+        Type = 'Python'
+        Port = 8765
+        Path = 'OmegaKG'
+        Command = 'poetry run python -m omega_kg.main'
+        HealthEndpoint = 'http://localhost:8765/health'
+        Priority = 3
+        MaxRetries = 10
+        BaseDelay = 3
+        DependsOn = @('Docker-Postgres', 'Docker-Neo4j', 'Docker-Redis')
+    }
+    'memOS' = @{
+        Type = 'Python'
+        Port = 8768
+        Path = 'memOS'
+        Command = 'poetry run python -m memos_mcp.server'
+        HealthEndpoint = 'http://localhost:8768/health'
+        Priority = 4
+        MaxRetries = 10
+        BaseDelay = 3
+        DependsOn = @('Docker-Postgres', 'OmegaKG')
+    }
+    'Cortex' = @{
+        Type = 'Node'
+        Port = 5173
+        Path = 'Cortex'
+        Command = 'npm run dev'
+        HealthEndpoint = 'http://localhost:5173'
+        Priority = 5
+        MaxRetries = 8
+        BaseDelay = 2
+        DependsOn = @('InGress', 'InGest', 'OmegaKG', 'memOS')
+    }
 }
 
-function Write-Success { param($Message) Write-ColorLog -Message $Message -Level "SUCCESS" -Color "Green" }
-function Write-ErrorLog { param($Message) Write-ColorLog -Message $Message -Level "ERROR" -Color "Red" }
-function Write-WarnLog { param($Message) Write-ColorLog -Message $Message -Level "WARN" -Color "Yellow" }
-function Write-InfoLog { param($Message) Write-ColorLog -Message $Message -Level "INFO" -Color "Cyan" }
+# ============================================================================
+# LOGGING FUNCTIONS
+# ============================================================================
+
+function Write-Log {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+        
+        [ValidateSet('Debug', 'Info', 'Warning', 'Error', 'Success')]
+        [string]$Level = 'Info',
+        
+        [string]$Service = 'System'
+    )
+    
+    $LevelValue = @{
+        'Debug' = 0
+        'Info' = 1
+        'Warning' = 2
+        'Error' = 3
+        'Success' = 1
+    }[$Level]
+    
+    if ($LevelValue -lt $Script:LogLevelValue) {
+        return  # Skip if below threshold
+    }
+    
+    $Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'
+    $LogLine = "[$Timestamp] [$Level] [$Service] $Message"
+    
+    # Ensure log directory exists
+    if (-not (Test-Path $Script:LogDir)) {
+        New-Item -ItemType Directory -Path $Script:LogDir -Force | Out-Null
+    }
+    
+    # Write to file
+    Add-Content -Path $Script:LogFile -Value $LogLine -Encoding UTF8
+    
+    # Console output with colors
+    $Color = switch ($Level) {
+        'Debug' { 'Gray' }
+        'Info' { 'White' }
+        'Success' { 'Green' }
+        'Warning' { 'Yellow' }
+        'Error' { 'Red' }
+    }
+    
+    Write-Host $LogLine -ForegroundColor $Color
+}
+
+function Write-Banner {
+    param([string]$Text)
+    
+    $Banner = @"
+
+╔═══════════════════════════════════════════════════════════════════════╗
+║  $($Text.PadRight(67))  ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+"@
+    Write-Log -Message "`n$Banner" -Level Info
+}
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 function Test-Port {
     param(
         [int]$Port,
-        [int]$Timeout = 5
+        [string]$Hostname = 'localhost',
+        [int]$TimeoutMs = 1000
     )
+    
     try {
-        $tcp = New-Object System.Net.Sockets.TcpClient
-        $connect = $tcp.BeginConnect("localhost", $Port, $null, $null)
-        $wait = $connect.AsyncWaitHandle.WaitOne($Timeout * 1000, $false)
+        # Force IPv4 to avoid IPv6 connection issues with 127.0.0.1 bindings
+        $TcpClient = New-Object System.Net.Sockets.TcpClient([System.Net.Sockets.AddressFamily]::InterNetwork)
+        $AsyncResult = $TcpClient.BeginConnect($Hostname, $Port, $null, $null)
+        $Wait = $AsyncResult.AsyncWaitHandle.WaitOne($TimeoutMs)
         
-        if ($wait) {
-            $tcp.EndConnect($connect)
-            $tcp.Close()
+        if ($Wait) {
+            $TcpClient.EndConnect($AsyncResult)
+            $TcpClient.Close()
             return $true
         }
-        $tcp.Close()
+        else {
+            $TcpClient.Close()
+            return $false
+        }
+    }
+    catch {
         return $false
-    } catch {
-        return $false
     }
 }
 
-function Get-PoetryOrPip {
-    param([string]$ServicePath)
-    
-    $PoetryCommand = Get-Command poetry -ErrorAction SilentlyContinue
-    $SystemPython = "C:\Program Files\Python312\python.exe"
-    
-    if ($PoetryCommand) {
-        Write-InfoLog "Using Poetry for $ServicePath"
-        return @{
-            Executor = $PoetryCommand.Source
-            UsePoetry = $true
-        }
-    } elseif (Test-Path $SystemPython) {
-        Write-InfoLog "Using System Python for $ServicePath"
-        return @{
-            Executor = $SystemPython
-            UsePoetry = $false
-        }
-    } else {
-        Write-WarnLog "Poetry and System Python not found, trying 'python' command"
-        return @{
-            Executor = "python"
-            UsePoetry = $false
-        }
-    }
-}
-
-function Install-WithFallback {
-    param(
-        [string]$Package,
-        [string]$ServicePath
-    )
-    
-    $ExecutorInfo = Get-PoetryOrPip -ServicePath $ServicePath
-    
-    if ($ExecutorInfo.UsePoetry) {
-        try {
-            Write-InfoLog "Installing $Package with Poetry..."
-            $result = Start-Process -FilePath $ExecutorInfo.Executor `
-                -ArgumentList "add $Package" `
-                -WorkingDirectory $ServicePath `
-                -Wait -NoNewWindow -PassThru
-            return $result.ExitCode -eq 0
-        } catch {
-            Write-WarnLog "Poetry install failed for $Package, trying pip with trusted hosts..."
-            return Install-PipWithTrustedHosts -Package $Package
-        }
-    } else {
-        return Install-PipWithTrustedHosts -Package $Package
-    }
-}
-
-function Install-PipWithTrustedHosts {
-    param([string]$Package)
+function Test-DatabaseConnection {
+    param([int]$Port = 6000)
     
     try {
-        Write-InfoLog "Installing $Package with pip (trusted hosts)..."
-        $result = Start-Process -FilePath "pip" `
-            -ArgumentList "install --trusted-host pypi.org --trusted-host files.pythonhosted.org $Package" `
-            -Wait -NoNewWindow -PassThru
-        return $result.ExitCode -eq 0
-    } catch {
-        Write-ErrorLog "Failed to install $Package with pip"
+        $PgIsReady = Get-Command pg_isready -ErrorAction SilentlyContinue
+        if ($PgIsReady) {
+            $Result = pg_isready -h localhost -p $Port 2>&1
+            return $LASTEXITCODE -eq 0
+        }
+        else {
+            # Fallback to TCP test
+            return Test-Port -Port $Port
+        }
+    }
+    catch {
         return $false
     }
 }
 
-function Invoke-ServiceHealthCheck {
+function Test-HttpEndpoint {
     param(
-        [string]$ServiceName,
-        [int]$Port,
-        [string]$Path = "/health",
-        [int]$MaxRetries = 30,
-        [int]$RetryInterval = 2
+        [string]$Url,
+        [int]$TimeoutSec = 5
     )
     
-    Write-InfoLog "Checking $ServiceName health on port $Port..."
+    try {
+        $Response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec $TimeoutSec -UseBasicParsing -ErrorAction Stop
+        return $Response.StatusCode -eq 200
+    }
+    catch {
+        Write-Log -Message "HTTP check failed: $_" -Level Debug
+        return $false
+    }
+}
+
+function Get-ExponentialDelay {
+    param(
+        [int]$Attempt,
+        [int]$BaseDelay = 2,
+        [int]$MaxDelay = 60
+    )
     
-    $attempt = 0
-    while ($attempt -lt $MaxRetries) {
-        $attempt++
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:$Port$Path" `
-                -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
-            
-            if ($response.StatusCode -eq 200) {
-                Write-Success "$ServiceName is healthy!"
-                return $true
-            }
-        } catch {
-            Write-WarnLog "Attempt ${attempt}/${MaxRetries}: $ServiceName not ready yet..."
-        }
-        
-        Start-Sleep -Seconds $RetryInterval
+    $Delay = [Math]::Min($BaseDelay * [Math]::Pow(2, $Attempt), $MaxDelay)
+    $Jitter = Get-Random -Minimum 0 -Maximum ($Delay * 0.1)  # Add 10% jitter
+    return [int]($Delay + $Jitter)
+}
+
+function Wait-ForDependencies {
+    param(
+        [string]$ServiceName,
+        [hashtable]$Service
+    )
+    
+    if (-not $Service.DependsOn) {
+        return $true
     }
     
-    Write-ErrorLog "$ServiceName failed health check after $MaxRetries attempts"
+    Write-Log -Message "Checking dependencies: $($Service.DependsOn -join ', ')" -Level Debug -Service $ServiceName
+    
+    foreach ($Dependency in $Service.DependsOn) {
+        if ($Script:ServiceHealth[$Dependency] -ne 'Healthy') {
+            Write-Log -Message "Dependency $Dependency not healthy (Status: $($Script:ServiceHealth[$Dependency]))" -Level Warning -Service $ServiceName
+            return $false
+        }
+    }
+    
+    return $true
+}
+
+# ============================================================================
+# SERVICE MANAGEMENT FUNCTIONS
+# ============================================================================
+
+function Start-DockerServices {
+    Write-Banner "STARTING DOCKER INFRASTRUCTURE"
+    
+    # Check if containers are already running
+    Write-Log -Message "Checking for existing Docker containers..." -Level Info
+    $ExistingContainers = docker ps --filter "name=postgres" --filter "name=neo4j" --filter "name=redis" --format "{{.Names}}" 2>&1
+    
+    if ($ExistingContainers -and $ExistingContainers.Count -ge 3) {
+        Write-Log -Message "Docker containers already running, skipping docker compose up" -Level Info
+    }
+    else {
+        Write-Log -Message "Starting Docker Compose services..." -Level Info
+    
+        try {
+            $DockerComposeFile = Join-Path $PSScriptRoot "docker-compose.yml"
+            if (-not (Test-Path $DockerComposeFile)) {
+                Write-Log -Message "docker-compose.yml not found at $DockerComposeFile" -Level Error
+                return $false
+            }
+            
+            # Run docker compose with timeout (30 seconds)
+            Write-Log -Message "Running: docker compose up -d (timeout: 30s)" -Level Debug
+            
+            $Job = Start-Job -ScriptBlock {
+                docker compose up -d 2>&1
+                return $LASTEXITCODE
+            } -WorkingDirectory $PSScriptRoot
+            
+            $Completed = Wait-Job -Job $Job -Timeout 30
+            
+            if (-not $Completed) {
+                Write-Log -Message "Docker Compose timed out after 30 seconds - containers may already be running" -Level Warning
+                Stop-Job -Job $Job
+                Remove-Job -Job $Job
+                
+                # Check if containers are actually running
+                $Running = docker ps --filter "name=postgres" --filter "name=neo4j" --filter "name=redis" --format "{{.Names}}" 2>&1
+                if ($Running) {
+                    Write-Log -Message "Docker containers detected as running, continuing..." -Level Info
+                }
+                else {
+                    Write-Log -Message "No Docker containers detected. Please start Docker manually: docker compose up -d" -Level Error
+                    return $false
+                }
+            }
+            else {
+                $Result = Receive-Job -Job $Job
+                $ExitCode = Receive-Job -Job $Job -Keep | Select-Object -Last 1
+                Remove-Job -Job $Job
+                
+                if ($ExitCode -ne 0 -and $ExitCode -ne $null) {
+                    Write-Log -Message "Docker Compose failed with exit code $ExitCode`: $Result" -Level Error
+                    return $false
+                }
+                
+                Write-Log -Message "Docker Compose started successfully" -Level Success
+            }
+        }
+        catch {
+            Write-Log -Message "Docker startup exception: $_" -Level Error
+            return $false
+        }
+    }
+    
+    # Wait for each Docker service with exponential backoff
+    foreach ($ServiceName in @('Docker-Postgres', 'Docker-Neo4j', 'Docker-Redis')) {
+        $Service = $Script:Services[$ServiceName]
+        $Healthy = Wait-ForService -ServiceName $ServiceName -Service $Service
+        
+        if (-not $Healthy) {
+            Write-Log -Message "$ServiceName failed to become healthy" -Level Error
+            $Script:FailedServices += $ServiceName
+            $Script:ServiceHealth[$ServiceName] = 'Failed'
+        }
+        else {
+            $Script:ServiceHealth[$ServiceName] = 'Healthy'
+            Write-Log -Message "$ServiceName is healthy" -Level Success -Service $ServiceName
+        }
+    }
+    
+    return $true
+}
+
+function Wait-ForService {
+    param(
+        [string]$ServiceName,
+        [hashtable]$Service
+    )
+    
+    $MaxRetries = $Service.MaxRetries
+    $BaseDelay = $Service.BaseDelay
+    
+    Write-Log -Message "Waiting for $ServiceName (Port: $($Service.Port))..." -Level Info -Service $ServiceName
+    
+    for ($Attempt = 0; $Attempt -lt $MaxRetries; $Attempt++) {
+        Write-Log -Message "Health check attempt $($Attempt + 1)/$MaxRetries" -Level Debug -Service $ServiceName
+        
+        $IsHealthy = $false
+        
+        try {
+            if ($Service.HealthEndpoint) {
+                $IsHealthy = Test-HttpEndpoint -Url $Service.HealthEndpoint
+            }
+            elseif ($Service.HealthCheck) {
+                $IsHealthy = & $Service.HealthCheck
+            }
+            else {
+                $IsHealthy = Test-Port -Port $Service.Port
+            }
+            
+            if ($IsHealthy) {
+                Write-Log -Message "$ServiceName health check PASSED" -Level Success -Service $ServiceName
+                return $true
+            }
+        }
+        catch {
+            Write-Log -Message "Health check error: $_" -Level Debug -Service $ServiceName
+        }
+        
+        if ($Attempt -lt $MaxRetries - 1) {
+            $Delay = Get-ExponentialDelay -Attempt $Attempt -BaseDelay $BaseDelay
+            Write-Log -Message "Health check failed. Retrying in $Delay seconds..." -Level Debug -Service $ServiceName
+            Start-Sleep -Seconds $Delay
+        }
+    }
+    
+    Write-Log -Message "$ServiceName health check FAILED after $MaxRetries attempts" -Level Error -Service $ServiceName
     return $false
 }
 
-function Stop-ServiceProcesses {
-    param([string]$Pattern, [string]$ServiceName)
-    
-    $Procs = Get-CimInstance Win32_Process -Filter "Name like '%python%' OR Name like '%node%'" | Where-Object {
-        $_.CommandLine -like "*$Pattern*"
-    }
-    
-    foreach ($p in $Procs) {
-        try {
-            Write-InfoLog "Stopping $ServiceName (PID: $($p.ProcessId))..."
-            Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
-        } catch {
-            Write-WarnLog "Failed to stop $ServiceName PID $($p.ProcessId): $($_.Exception.Message)"
-        }
-    }
-}
-
-function Initialize-Databases {
-    param([switch]$SkipMigrations)
-    
-    Write-InfoLog "========================================"
-    Write-InfoLog "Initializing Databases"
-    Write-InfoLog "========================================"
-    
-    $databases = @{
-        "PostgreSQL" = @{
-            "Port" = 6000
-            "Container" = "apexsigma.postgres.stable"
-            "HealthCheck" = { docker exec apexsigma.postgres.stable pg_isready -U omega_user }
-        }
-        "Neo4j" = @{
-            "Port" = 7687
-            "Container" = "apexsigma.neo4j.stable"
-            "HealthCheck" = { Test-Port -Port 7474 }
-        }
-        "Redis" = @{
-            "Port" = 6380
-            "Container" = "apexsigma.redis"
-            "HealthCheck" = { docker exec apexsigma.redis redis-cli ping }
-        }
-    }
-    
-    foreach ($db in $databases.Keys) {
-        $config = $databases[$db]
-        
-        Write-InfoLog "Checking $db (port $($config.Port))..."
-        
-        if (Test-Port -Port $config.Port) {
-            Write-Success "$db is already running"
-        } else {
-            Write-InfoLog "Starting $db container..."
-            try {
-                docker start $config.Container 2>&1 | Out-Null
-                
-                $attempt = 0
-                $maxAttempts = 30
-                
-                while ($attempt -lt $maxAttempts) {
-                    $attempt++
-                    try {
-                        & $config.HealthCheck | Out-Null
-                        Write-Success "$db started successfully"
-                        break
-                    } catch {
-                        Write-WarnLog "Waiting for $db to start (attempt $attempt/$maxAttempts)..."
-                        Start-Sleep -Seconds 2
-                    }
-                }
-                
-                if ($attempt -eq $maxAttempts) {
-                    Write-ErrorLog "Failed to start $db"
-                    throw "$db failed to start"
-                }
-            } catch {
-                    Write-ErrorLog "Failed to start ${db}: $($_.Exception.Message)"
-                throw
-            }
-        }
-    }
-    
-    if (-not $SkipMigrations) {
-        Write-InfoLog "Running Alembic migrations..."
-        Invoke-AlembicMigrations
-    }
-    
-    Write-Success "Database initialization complete"
-    Write-InfoLog ""
-}
-
-function Invoke-AlembicMigrations {
-    $migrations = @{
-        "InGress" = "D:\projects\Soma\InGress"
-        "InGest" = "D:\projects\Soma\InGest"
-        "OmegaKG" = "D:\projects\Soma\OmegaKG"
-        "memOS" = "D:\projects\Soma\memOS"
-    }
-    
-    foreach ($service in $migrations.Keys) {
-        $servicePath = $migrations[$service]
-        $alembicIni = Join-Path $servicePath "alembic.ini"
-        
-        if (Test-Path $alembicIni) {
-            Write-InfoLog "Running migrations for $service..."
-            
-            $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
-            
-            try {
-                $migrationCmd = if ($ExecutorInfo.UsePoetry) {
-                    "run alembic upgrade head"
-                } else {
-                    "-m alembic upgrade head"
-                }
-                
-                $result = Start-Process -FilePath $ExecutorInfo.Executor `
-                    -ArgumentList $migrationCmd `
-                    -WorkingDirectory $servicePath `
-                    -Wait -NoNewWindow -PassThru `
-                    -RedirectStandardOutput (Join-Path $ProjectRoot "logs\${service}_migrations.log") `
-                    -RedirectStandardError (Join-Path $ProjectRoot "logs\${service}_migrations.err.log")
-                
-                if ($result.ExitCode -eq 0) {
-                    Write-Success "$service migrations completed"
-                } else {
-                    Write-WarnLog "$service migrations failed with exit code $($result.ExitCode)"
-                }
-            } catch {
-                Write-WarnLog "Failed to run migrations for ${service}: $($_.Exception.Message)"
-            }
-        } else {
-            Write-WarnLog "No alembic.ini found for $service, skipping migrations"
-        }
-    }
-}
-
-function Validate-ServiceContracts {
+function Start-PythonService {
     param(
         [string]$ServiceName,
-        [string]$ContractPath
+        [hashtable]$Service
     )
     
-    Write-InfoLog "Validating API contracts for $ServiceName..."
+    Write-Log -Message "Starting Python service..." -Level Info -Service $ServiceName
     
-    if (-not (Test-Path $ContractPath)) {
-        Write-WarnLog "No contract file found at $ContractPath"
-        return $false
+    # Check dependencies
+    if (-not (Wait-ForDependencies -ServiceName $ServiceName -Service $Service)) {
+        Write-Log -Message "Dependencies not met, skipping startup" -Level Warning -Service $ServiceName
+        return $null
+    }
+    
+    $ServicePath = Join-Path $PSScriptRoot $Service.Path
+    if (-not (Test-Path $ServicePath)) {
+        Write-Log -Message "Service path not found: $ServicePath" -Level Error -Service $ServiceName
+        return $null
+    }
+    
+    # Check Poetry installation
+    $PoetryEnv = Join-Path $ServicePath ".venv"
+    if (-not (Test-Path $PoetryEnv)) {
+        Write-Log -Message "Poetry environment not found at $PoetryEnv. Run 'poetry install' first." -Level Error -Service $ServiceName
+        return $null
+    }
+    
+    # Load .env file if it exists
+    $EnvFile = Join-Path $ServicePath ".env"
+    if (Test-Path $EnvFile) {
+        Write-Log -Message "Loading environment from .env file" -Level Debug -Service $ServiceName
+        Get-Content $EnvFile | ForEach-Object {
+            if ($_ -match '^\s*([^#][^=]+)=(.+)$') {
+                $key = $matches[1].Trim()
+                $value = $matches[2].Trim()
+                [System.Environment]::SetEnvironmentVariable($key, $value, 'Process')
+                Write-Log -Message "Loaded env var: $key" -Level Debug -Service $ServiceName
+            }
+        }
+    }
+    else {
+        Write-Log -Message ".env file not found at $EnvFile" -Level Warning -Service $ServiceName
     }
     
     try {
-        $contract = Get-Content $ContractPath -Raw | ConvertFrom-Json
+        $LogFile = Join-Path $Script:LogDir "$ServiceName.log"
         
-        if ($contract.contract_version) {
-            Write-Success "$ServiceName contract v$($contract.contract_version) loaded"
+        $ProcessParams = @{
+            FilePath = 'poetry'
+            ArgumentList = $Service.Command.Replace('poetry ', '').Split(' ')
+            WorkingDirectory = $ServicePath
+            RedirectStandardOutput = $LogFile
+            RedirectStandardError = Join-Path $Script:LogDir "$ServiceName.error.log"
+            NoNewWindow = -not $ShowConsole
+            PassThru = $true
+        }
+        
+        Write-Log -Message "Command: $($Service.Command)" -Level Debug -Service $ServiceName
+        Write-Log -Message "Working directory: $ServicePath" -Level Debug -Service $ServiceName
+        
+        $Process = Start-Process @ProcessParams
+        
+        if ($Process) {
+            Write-Log -Message "Process started (PID: $($Process.Id))" -Level Success -Service $ServiceName
+            $Script:ServiceProcesses[$ServiceName] = $Process
             
-            if ($contract.input_schema) {
-                Write-InfoLog "  - Input schema: $($contract.input_schema.source)"
+            # Wait for service to become healthy
+            $Healthy = Wait-ForService -ServiceName $ServiceName -Service $Service
+            
+            if ($Healthy) {
+                $Script:ServiceHealth[$ServiceName] = 'Healthy'
+                return $Process
             }
-            if ($contract.output_schema) {
-                Write-InfoLog "  - Output schema: $($contract.output_schema.target)"
+            else {
+                Write-Log -Message "Service started but failed health checks" -Level Error -Service $ServiceName
+                $Script:ServiceHealth[$ServiceName] = 'Unhealthy'
+                $Script:FailedServices += $ServiceName
+                return $null
             }
-            return $true
-        } else {
-            Write-WarnLog "Invalid contract format for $ServiceName"
+        }
+        else {
+            Write-Log -Message "Failed to start process" -Level Error -Service $ServiceName
+            return $null
+        }
+    }
+    catch {
+        Write-Log -Message "Exception during startup: $_" -Level Error -Service $ServiceName
+        Write-Log -Message "Stack trace: $($_.ScriptStackTrace)" -Level Debug -Service $ServiceName
+        return $null
+    }
+}
+
+function Start-NodeService {
+    param(
+        [string]$ServiceName,
+        [hashtable]$Service
+    )
+    
+    Write-Log -Message "Starting Node service..." -Level Info -Service $ServiceName
+    
+    # Check dependencies
+    if (-not (Wait-ForDependencies -ServiceName $ServiceName -Service $Service)) {
+        Write-Log -Message "Dependencies not met, skipping startup" -Level Warning -Service $ServiceName
+        return $null
+    }
+    
+    $ServicePath = Join-Path $PSScriptRoot $Service.Path
+    if (-not (Test-Path $ServicePath)) {
+        Write-Log -Message "Service path not found: $ServicePath" -Level Error -Service $ServiceName
+        return $null
+    }
+    
+    # Check node_modules
+    $NodeModules = Join-Path $ServicePath "node_modules"
+    if (-not (Test-Path $NodeModules)) {
+        Write-Log -Message "node_modules not found. Running npm install..." -Level Warning -Service $ServiceName
+        Push-Location $ServicePath
+        npm install 2>&1 | Out-File (Join-Path $Script:LogDir "$ServiceName.install.log")
+        Pop-Location
+    }
+    
+    try {
+        $LogFile = Join-Path $Script:LogDir "$ServiceName.log"
+        
+        $ProcessParams = @{
+            FilePath = 'npm'
+            ArgumentList = 'run', 'dev'
+            WorkingDirectory = $ServicePath
+            RedirectStandardOutput = $LogFile
+            RedirectStandardError = Join-Path $Script:LogDir "$ServiceName.error.log"
+            NoNewWindow = -not $ShowConsole
+            PassThru = $true
+        }
+        
+        Write-Log -Message "Command: npm run dev" -Level Debug -Service $ServiceName
+        Write-Log -Message "Working directory: $ServicePath" -Level Debug -Service $ServiceName
+        
+        $Process = Start-Process @ProcessParams
+        
+        if ($Process) {
+            Write-Log -Message "Process started (PID: $($Process.Id))" -Level Success -Service $ServiceName
+            $Script:ServiceProcesses[$ServiceName] = $Process
+            
+            # Wait for service to become healthy
+            $Healthy = Wait-ForService -ServiceName $ServiceName -Service $Service
+            
+            if ($Healthy) {
+                $Script:ServiceHealth[$ServiceName] = 'Healthy'
+                return $Process
+            }
+            else {
+                Write-Log -Message "Service started but failed health checks" -Level Error -Service $ServiceName
+                $Script:ServiceHealth[$ServiceName] = 'Unhealthy'
+                $Script:FailedServices += $ServiceName
+                return $null
+            }
+        }
+        else {
+            Write-Log -Message "Failed to start process" -Level Error -Service $ServiceName
+            return $null
+        }
+    }
+    catch {
+        Write-Log -Message "Exception during startup: $_" -Level Error -Service $ServiceName
+        Write-Log -Message "Stack trace: $($_.ScriptStackTrace)" -Level Debug -Service $ServiceName
+        return $null
+    }
+}
+
+# ============================================================================
+# MAINTENANCE FUNCTIONS
+# ============================================================================
+
+function Invoke-Migrations {
+    if ($SkipMigrations) {
+        Write-Log -Message "Skipping migrations (--SkipMigrations flag)" -Level Info
+        return $true
+    }
+    
+    Write-Banner "RUNNING DATABASE MIGRATIONS"
+    
+    $MigrationScript = Join-Path $PSScriptRoot "scripts\database\migrate_all.py"
+    if (-not (Test-Path $MigrationScript)) {
+        Write-Log -Message "Migration script not found: $MigrationScript" -Level Warning
+        return $true  # Non-fatal
+    }
+    
+    try {
+        Write-Log -Message "Running migrate_all.py upgrade..." -Level Info
+        
+        # Set environment variables for migrations
+        $env:REQUESTS_CA_BUNDLE = & poetry run python -c "import certifi; print(certifi.where())" 2>$null
+        
+        $Result = poetry run python $MigrationScript upgrade 2>&1
+        $Success = $LASTEXITCODE -eq 0
+        
+        if ($Success) {
+            Write-Log -Message "Migrations completed successfully" -Level Success
+        }
+        else {
+            Write-Log -Message "Migrations failed: $Result" -Level Error
+        }
+        
+        return $Success
+    }
+    catch {
+        Write-Log -Message "Migration exception: $_" -Level Error
+        return $false
+    }
+}
+
+function Invoke-ContractValidation {
+    if ($SkipContracts) {
+        Write-Log -Message "Skipping contract validation (--SkipContracts flag)" -Level Info
+        return $true
+    }
+    
+    Write-Banner "VALIDATING API CONTRACTS"
+    
+    $ContractScript = Join-Path $PSScriptRoot "contracts\validate_contracts.py"
+    if (-not (Test-Path $ContractScript)) {
+        Write-Log -Message "Contract validation script not found: $ContractScript" -Level Warning
+        return $true  # Non-fatal
+    }
+    
+    try {
+        Write-Log -Message "Running validate_contracts.py..." -Level Info
+        
+        $Result = poetry run python $ContractScript 2>&1
+        $Success = $LASTEXITCODE -eq 0
+        
+        if ($Success) {
+            Write-Log -Message "Contract validation passed" -Level Success
+        }
+        else {
+            Write-Log -Message "Contract validation failed: $Result" -Level Warning
+        }
+        
+        return $Success
+    }
+    catch {
+        Write-Log -Message "Contract validation exception: $_" -Level Error
+        return $false
+    }
+}
+
+# ============================================================================
+# MONITORING & RECOVERY
+# ============================================================================
+
+function Test-ServiceHealth {
+    param([string]$ServiceName)
+    
+    $Service = $Script:Services[$ServiceName]
+    
+    # Check process is still running
+    if ($Script:ServiceProcesses.ContainsKey($ServiceName)) {
+        $Process = $Script:ServiceProcesses[$ServiceName]
+        if ($Process.HasExited) {
+            Write-Log -Message "Process has exited (Exit code: $($Process.ExitCode))" -Level Error -Service $ServiceName
             return $false
         }
-    } catch {
-        Write-WarnLog "Failed to validate contract for ${ServiceName}: $($_.Exception.Message)"
-        return $false
     }
+    
+    # Check health endpoint
+    if ($Service.HealthEndpoint) {
+        return Test-HttpEndpoint -Url $Service.HealthEndpoint -TimeoutSec 3
+    }
+    elseif ($Service.Port) {
+        return Test-Port -Port $Service.Port
+    }
+    
+    return $false
 }
 
-function Start-Ingress {
-    param([switch]$ShowConsole)
+function Start-WatchdogLoop {
+    Write-Banner "STARTING WATCHDOG MONITORING"
     
-    Write-InfoLog "========================================"
-    Write-InfoLog "Starting InGress (Senses Layer)"
-    Write-InfoLog "========================================"
+    Write-Log -Message "Watchdog will monitor and recover failed services" -Level Info
+    Write-Log -Message "Press Ctrl+C to stop" -Level Info
     
-    $servicePath = "D:\projects\Soma\InGress"
-    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
-    
-    if (-not (Test-Path $servicePath)) {
-        Write-ErrorLog "InGress not found at $servicePath"
-        $global:ServicesFailed["InGress"] = "Directory not found"
-        return
-    }
-    
-    Stop-ServiceProcesses -Pattern "soma_ingress" -ServiceName "InGress"
+    $CheckInterval = 30  # seconds
+    $RestartAttempts = @{}  # Track restart attempts per service
     
     try {
-        $logDir = Join-Path $ProjectRoot "logs"
-        $runArgs = if ($ExecutorInfo.UsePoetry) {
-            "run python -m soma_ingress.main"
-        } else {
-            "-m uvicorn soma_ingress.main:app --port 8000"
-        }
-        
-        $startParams = @{
-            FilePath = $ExecutorInfo.Executor
-            ArgumentList = $runArgs
-            WorkingDirectory = $servicePath
-            PassThru = $true
-        }
-        
-        if (-not $ShowConsole) {
-            $startParams["WindowStyle"] = "Hidden"
-            $startParams["RedirectStandardOutput"] = Join-Path $logDir "ingress_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-            $startParams["RedirectStandardError"] = Join-Path $logDir "ingress_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
-        }
-        
-        $proc = Start-Process @startParams
-        
-        if (Invoke-ServiceHealthCheck -ServiceName "InGress" -Port 8000) {
-            $global:ServicesStarted["InGress"] = $proc.Id
-            Write-Success "InGress started successfully (PID: $($proc.Id))"
-        } else {
-            $global:ServicesFailed["InGress"] = "Health check failed"
-            Write-ErrorLog "InGress failed health check"
-        }
-    } catch {
-        $global:ServicesFailed["InGress"] = $_.Exception.Message
-        Write-ErrorLog "Failed to start InGress: $($_.Exception.Message)"
-    }
-}
-
-function Start-Ingest {
-    param([switch]$ShowConsole)
-    
-    Write-InfoLog "========================================"
-    Write-InfoLog "Starting InGest (Stomach Layer)"
-    Write-InfoLog "========================================"
-    
-    $servicePath = "D:\projects\Soma\InGest"
-    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
-    
-    if (-not (Test-Path $servicePath)) {
-        Write-ErrorLog "InGest not found at $servicePath"
-        $global:ServicesFailed["InGest"] = "Directory not found"
-        return
-    }
-    
-    if (-not $SkipContracts) {
-        Validate-ServiceContracts -ServiceName "InGest" -ContractPath (Join-Path $servicePath "validators\omega_ingest_contract.json")
-    }
-    
-    Stop-ServiceProcesses -Pattern "ingest_llm_as" -ServiceName "InGest"
-    
-    try {
-        $logDir = Join-Path $ProjectRoot "logs"
-        $runArgs = if ($ExecutorInfo.UsePoetry) {
-            "run python -m ingest_llm_as.main"
-        } else {
-            "-m uvicorn ingest_llm_as.main:app --port 8766"
-        }
-        
-        $startParams = @{
-            FilePath = $ExecutorInfo.Executor
-            ArgumentList = $runArgs
-            WorkingDirectory = Join-Path $servicePath "src"
-            PassThru = $true
-        }
-        
-        if (-not $ShowConsole) {
-            $startParams["WindowStyle"] = "Hidden"
-            $startParams["RedirectStandardOutput"] = Join-Path $logDir "ingest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-            $startParams["RedirectStandardError"] = Join-Path $logDir "ingest_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
-        }
-        
-        $proc = Start-Process @startParams
-        
-        if (Invoke-ServiceHealthCheck -ServiceName "InGest" -Port 8766) {
-            $global:ServicesStarted["InGest"] = $proc.Id
-            Write-Success "InGest started successfully (PID: $($proc.Id))"
-        } else {
-            $global:ServicesFailed["InGest"] = "Health check failed"
-            Write-ErrorLog "InGest failed health check"
-        }
-    } catch {
-        $global:ServicesFailed["InGest"] = $_.Exception.Message
-        Write-ErrorLog "Failed to start InGest: $($_.Exception.Message)"
-    }
-}
-
-function Start-OmegaKG {
-    param([switch]$ShowConsole)
-    
-    Write-InfoLog "========================================"
-    Write-InfoLog "Starting OmegaKG (Brain Layer)"
-    Write-InfoLog "========================================"
-    
-    $servicePath = "D:\projects\Soma\OmegaKG"
-    $startScript = Join-Path $servicePath "scripts\start_full_stack.ps1"
-    
-    if (-not (Test-Path $startScript)) {
-        Write-ErrorLog "OmegaKG start script not found at $startScript"
-        $global:ServicesFailed["OmegaKG"] = "Start script not found"
-        return
-    }
-    
-    Stop-ServiceProcesses -Pattern "omega_kg" -ServiceName "OmegaKG"
-    
-    try {
-        $logDir = Join-Path $ProjectRoot "logs"
-        $consoleFlag = if ($ShowConsole) { "-ShowConsole" } else { "" }
-        
-        $proc = Start-Process -FilePath "powershell.exe" `
-            -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startScript`" $consoleFlag" `
-            -WorkingDirectory $servicePath `
-            -PassThru
-        
-        Write-InfoLog "Waiting for OmegaKG services to initialize..."
-        Start-Sleep -Seconds 10
-        
-        if (Invoke-ServiceHealthCheck -ServiceName "OmegaKG" -Port 8765) {
-            $global:ServicesStarted["OmegaKG"] = $proc.Id
-            Write-Success "OmegaKG started successfully (PID: $($proc.Id))"
-        } else {
-            $global:ServicesFailed["OmegaKG"] = "Health check failed"
-            Write-WarnLog "OmegaKG health check failed, but capture server may be starting"
-            $global:ServicesStarted["OmegaKG"] = $proc.Id
-        }
-    } catch {
-        $global:ServicesFailed["OmegaKG"] = $_.Exception.Message
-        Write-ErrorLog "Failed to start OmegaKG: $($_.Exception.Message)"
-    }
-}
-
-function Start-MemOS {
-    param([switch]$ShowConsole)
-    
-    Write-InfoLog "========================================"
-    Write-InfoLog "Starting memOS (Hands Layer)"
-    Write-InfoLog "========================================"
-    
-    $servicePath = "D:\projects\Soma\memOS"
-    $ExecutorInfo = Get-PoetryOrPip -ServicePath $servicePath
-    
-    if (-not (Test-Path $servicePath)) {
-        Write-ErrorLog "memOS not found at $servicePath"
-        $global:ServicesFailed["memOS"] = "Directory not found"
-        return
-    }
-    
-    Stop-ServiceProcesses -Pattern "memos_mcp" -ServiceName "memOS"
-    
-    try {
-        $logDir = Join-Path $ProjectRoot "logs"
-        $runArgs = if ($ExecutorInfo.UsePoetry) {
-            "run python -m memos_mcp.server --sse"
-        } else {
-            "-m memos_mcp.server --sse"
-        }
-        
-        $startParams = @{
-            FilePath = $ExecutorInfo.Executor
-            ArgumentList = $runArgs
-            WorkingDirectory = Join-Path $servicePath "src"
-            PassThru = $true
-        }
-        
-        if (-not $ShowConsole) {
-            $startParams["WindowStyle"] = "Hidden"
-            $startParams["RedirectStandardOutput"] = Join-Path $logDir "memos_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-            $startParams["RedirectStandardError"] = Join-Path $logDir "memos_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
-        }
-        
-        $proc = Start-Process @startParams
-        
-        if (Invoke-ServiceHealthCheck -ServiceName "memOS" -Port 8768) {
-            $global:ServicesStarted["memOS"] = $proc.Id
-            Write-Success "memOS started successfully (PID: $($proc.Id))"
-        } else {
-            $global:ServicesFailed["memOS"] = "Health check failed"
-            Write-WarnLog "memOS health check failed, but MCP server may be starting"
-            $global:ServicesStarted["memOS"] = $proc.Id
-        }
-    } catch {
-        $global:ServicesFailed["memOS"] = $_.Exception.Message
-        Write-ErrorLog "Failed to start memOS: $($_.Exception.Message)"
-    }
-}
-
-function Start-Cortex {
-    param([switch]$ShowConsole)
-    
-    Write-InfoLog "========================================"
-    Write-InfoLog "Starting Cortex (Dashboard/Control Room)"
-    Write-InfoLog "========================================"
-    
-    $servicePath = "D:\projects\Soma\Cortex"
-    
-    if (-not (Test-Path $servicePath)) {
-        Write-ErrorLog "Cortex not found at $servicePath"
-        $global:ServicesFailed["Cortex"] = "Directory not found"
-        return
-    }
-    
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-ErrorLog "npm not found in PATH. Cannot start Cortex."
-        $global:ServicesFailed["Cortex"] = "npm not found"
-        return
-    }
-    
-    Stop-ServiceProcesses -Pattern "vite" -ServiceName "Cortex"
-    
-    try {
-        Push-Location $servicePath
-        
-        Write-InfoLog "Installing Cortex dependencies (if needed)..."
-        $installResult = Start-Process -FilePath "npm" `
-            -ArgumentList "install" `
-            -Wait -NoNewWindow -PassThru
-        
-        if ($installResult.ExitCode -ne 0) {
-            Write-WarnLog "npm install had issues, continuing anyway..."
-        }
-        
-        Write-InfoLog "Starting Cortex dev server..."
-        
-        $logDir = Join-Path $ProjectRoot "logs"
-        $startParams = @{
-            FilePath = "npm.cmd"
-            ArgumentList = "run dev"
-            PassThru = $true
-        }
-        
-        if (-not $ShowConsole) {
-            $startParams["WindowStyle"] = "Hidden"
-            $startParams["RedirectStandardOutput"] = Join-Path $logDir "cortex_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
-            $startParams["RedirectStandardError"] = Join-Path $logDir "cortex_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').err.log"
-        }
-        
-        $proc = Start-Process @startParams
-        Pop-Location
-        
-        Write-InfoLog "Waiting for Cortex to initialize..."
-        Start-Sleep -Seconds 8
-        
-        $cortexPort = 5173
-        if (Test-Port -Port $cortexPort) {
-            $global:ServicesStarted["Cortex"] = $proc.Id
-            Write-Success "Cortex started successfully (PID: $($proc.Id))"
+        while ($true) {
+            Start-Sleep -Seconds $CheckInterval
             
-            Write-InfoLog "Opening Cortex Dashboard in browser..."
-            Start-Process "http://localhost:$cortexPort"
-        } else {
-            $global:ServicesFailed["Cortex"] = "Health check failed"
-            Write-WarnLog "Cortex health check failed, but Vite may be starting"
-            $global:ServicesStarted["Cortex"] = $proc.Id
-        }
-    } catch {
-        $global:ServicesFailed["Cortex"] = $_.Exception.Message
-        Write-ErrorLog "Failed to start Cortex: $($_.Exception.Message)"
-        Pop-Location
-    }
-}
-
-function Show-EcosystemStatus {
-    Write-InfoLog "========================================"
-    Write-InfoLog "Soma Ecosystem Status"
-    Write-InfoLog "========================================"
-    
-    $services = @(
-        @{ Name = "InGress"; Port = 8000; URL = "http://localhost:8000" },
-        @{ Name = "InGest"; Port = 8766; URL = "http://localhost:8766" },
-        @{ Name = "OmegaKG"; Port = 8765; URL = "http://localhost:8765" },
-        @{ Name = "memOS"; Port = 8768; URL = "http://localhost:8768" },
-        @{ Name = "Cortex"; Port = 5173; URL = "http://localhost:5173" }
-    )
-    
-    foreach ($svc in $services) {
-        if ($global:ServicesStarted.ContainsKey($svc.Name)) {
-            Write-Success "  $($svc.Name): $($svc.URL) (PID: $($global:ServicesStarted[$svc.Name]))"
-        } elseif ($global:ServicesFailed.ContainsKey($svc.Name)) {
-            Write-ErrorLog "  $($svc.Name): FAILED - $($global:ServicesFailed[$svc.Name])"
-        } else {
-            Write-WarnLog "  $($svc.Name): SKIPPED"
-        }
-    }
-    
-    Write-InfoLog "========================================"
-}
-
-function Start-Watchdog {
-    Write-InfoLog "========================================"
-    Write-InfoLog "Master Watchdog Active"
-    Write-InfoLog "Monitoring services every 30 seconds"
-    Write-InfoLog "Press Ctrl+C to stop"
-    Write-InfoLog "========================================"
-    
-    while ($true) {
-        Start-Sleep -Seconds 30
-        
-        $timestamp = Get-Date -Format "HH:mm:ss"
-        Write-InfoLog "[$timestamp] Watchdog check..."
-        
-        foreach ($serviceName in $global:ServicesStarted.Keys) {
-            $pid = $global:ServicesStarted[$serviceName]
+            Write-Log -Message "Performing health checks..." -Level Debug
             
-            try {
-                $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
-                if (-not $proc) {
-                    Write-WarnLog "[$timestamp] $serviceName (PID: $pid) is not running!"
+            foreach ($ServiceName in $Script:ServiceProcesses.Keys) {
+                $IsHealthy = Test-ServiceHealth -ServiceName $ServiceName
+                $PreviousHealth = $Script:ServiceHealth[$ServiceName]
+                
+                if (-not $IsHealthy -and $PreviousHealth -eq 'Healthy') {
+                    Write-Log -Message "Service became UNHEALTHY" -Level Error -Service $ServiceName
+                    $Script:ServiceHealth[$ServiceName] = 'Unhealthy'
+                    
+                    # Initialize restart counter
+                    if (-not $RestartAttempts.ContainsKey($ServiceName)) {
+                        $RestartAttempts[$ServiceName] = 0
+                    }
+                    
+                    # Attempt restart (max 3 attempts)
+                    if ($RestartAttempts[$ServiceName] -lt 3) {
+                        $RestartAttempts[$ServiceName]++
+                        Write-Log -Message "Attempting restart ($($RestartAttempts[$ServiceName])/3)..." -Level Warning -Service $ServiceName
+                        
+                        # Stop crashed service
+                        if ($Script:ServiceProcesses[$ServiceName]) {
+                            try {
+                                $Script:ServiceProcesses[$ServiceName].Kill()
+                            }
+                            catch {
+                                Write-Log -Message "Failed to kill process: $_" -Level Debug -Service $ServiceName
+                            }
+                        }
+                        
+                        # Restart based on service type
+                        $Service = $Script:Services[$ServiceName]
+                        $NewProcess = $null
+                        
+                        switch ($Service.Type) {
+                            'Python' { $NewProcess = Start-PythonService -ServiceName $ServiceName -Service $Service }
+                            'Node' { $NewProcess = Start-NodeService -ServiceName $ServiceName -Service $Service }
+                        }
+                        
+                        if ($NewProcess) {
+                            Write-Log -Message "Service restarted successfully" -Level Success -Service $ServiceName
+                            $RestartAttempts[$ServiceName] = 0  # Reset counter on success
+                        }
+                        else {
+                            Write-Log -Message "Restart failed" -Level Error -Service $ServiceName
+                        }
+                    }
+                    else {
+                        Write-Log -Message "Max restart attempts reached. Service marked as FAILED." -Level Error -Service $ServiceName
+                        $Script:ServiceHealth[$ServiceName] = 'Failed'
+                    }
                 }
-            } catch {
-                Write-WarnLog "[$timestamp] Failed to check $serviceName (PID: $pid)"
+                elseif ($IsHealthy -and $PreviousHealth -ne 'Healthy') {
+                    Write-Log -Message "Service recovered to HEALTHY" -Level Success -Service $ServiceName
+                    $Script:ServiceHealth[$ServiceName] = 'Healthy'
+                    $RestartAttempts[$ServiceName] = 0
+                }
             }
         }
     }
+    catch {
+        Write-Log -Message "Watchdog interrupted: $_" -Level Warning
+    }
 }
 
+# ============================================================================
+# MAIN ORCHESTRATION
+# ============================================================================
+
+function Start-Ecosystem {
+    Write-Banner "SOMA ECOSYSTEM ORCHESTRATOR"
+    
+    Write-Log -Message "PowerShell Version: $($PSVersionTable.PSVersion)" -Level Info
+    Write-Log -Message "Operating System: $([System.Environment]::OSVersion.VersionString)" -Level Info
+    Write-Log -Message "Working Directory: $PSScriptRoot" -Level Info
+    Write-Log -Message "Log File: $Script:LogFile" -Level Info
+    Write-Log -Message "Log Level: $LogLevel" -Level Info
+    
+    # Phase 1: Pre-flight checks
+    Write-Banner "PHASE 1: PRE-FLIGHT CHECKS"
+    
+    # Check required tools
+    $RequiredTools = @('docker', 'poetry', 'npm', 'python')
+    foreach ($Tool in $RequiredTools) {
+        $Exists = Get-Command $Tool -ErrorAction SilentlyContinue
+        if (-not $Exists) {
+            Write-Log -Message "$Tool not found in PATH" -Level Error
+            return $false
+        }
+        else {
+            $Version = & $Tool --version 2>&1 | Select-Object -First 1
+            Write-Log -Message "$Tool found: $Version" -Level Debug
+        }
+    }
+    
+    # Check .env file
+    $EnvFile = Join-Path $PSScriptRoot ".env"
+    if (-not (Test-Path $EnvFile)) {
+        Write-Log -Message ".env file not found. Copy from .env.example" -Level Error
+        return $false
+    }
+    
+    Write-Log -Message "Pre-flight checks PASSED" -Level Success
+    
+    # Phase 2: Docker infrastructure
+    Write-Banner "PHASE 2: DOCKER INFRASTRUCTURE"
+    
+    $DockerSuccess = Start-DockerServices
+    if (-not $DockerSuccess) {
+        Write-Log -Message "Docker infrastructure failed to start" -Level Error
+        return $false
+    }
+    
+    # Phase 3: Database migrations
+    Write-Banner "PHASE 3: DATABASE MIGRATIONS"
+    
+    $MigrationSuccess = Invoke-Migrations
+    if (-not $MigrationSuccess) {
+        Write-Log -Message "Migrations failed (continuing anyway)" -Level Warning
+    }
+    
+    # Phase 4: Contract validation
+    Write-Banner "PHASE 4: API CONTRACT VALIDATION"
+    
+    $ContractSuccess = Invoke-ContractValidation
+    if (-not $ContractSuccess) {
+        Write-Log -Message "Contract validation failed (continuing anyway)" -Level Warning
+    }
+    
+    # Phase 5: Start services by priority
+    Write-Banner "PHASE 5: STARTING APPLICATION SERVICES"
+    
+    $ServicesByPriority = $Script:Services.GetEnumerator() | 
+        Where-Object { $_.Value.Type -ne 'Docker' } |
+        Sort-Object { $_.Value.Priority }
+    
+    foreach ($Entry in $ServicesByPriority) {
+        $ServiceName = $Entry.Key
+        $Service = $Entry.Value
+        
+        Write-Log -Message "Starting $ServiceName (Priority: $($Service.Priority))..." -Level Info -Service $ServiceName
+        
+        $Process = $null
+        switch ($Service.Type) {
+            'Python' { $Process = Start-PythonService -ServiceName $ServiceName -Service $Service }
+            'Node' { $Process = Start-NodeService -ServiceName $ServiceName -Service $Service }
+        }
+        
+        if (-not $Process) {
+            Write-Log -Message "$ServiceName failed to start" -Level Error -Service $ServiceName
+            $Script:FailedServices += $ServiceName
+            # Continue with other services (decoupled)
+        }
+        
+        # Brief pause between services
+        Start-Sleep -Seconds 2
+    }
+    
+    # Phase 6: Summary
+    Write-Banner "PHASE 6: STARTUP SUMMARY"
+    
+    $HealthyCount = ($Script:ServiceHealth.Values | Where-Object { $_ -eq 'Healthy' }).Count
+    $TotalCount = $Script:Services.Count
+    $Duration = (Get-Date) - $Script:StartTime
+    
+    Write-Log -Message "Startup completed in $($Duration.TotalSeconds) seconds" -Level Info
+    Write-Log -Message "Services: $HealthyCount/$TotalCount healthy" -Level Info
+    
+    Write-Host "`n╔═══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║                       SERVICE STATUS REPORT                           ║" -ForegroundColor Cyan
+    Write-Host "╠═══════════════════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+    
+    foreach ($ServiceName in ($Script:Services.Keys | Sort-Object)) {
+        $Status = $Script:ServiceHealth[$ServiceName]
+        $Service = $Script:Services[$ServiceName]
+        
+        $StatusSymbol = switch ($Status) {
+            'Healthy' { '✓' }
+            'Unhealthy' { '⚠' }
+            'Failed' { '✗' }
+            default { '?' }
+        }
+        
+        $StatusColor = switch ($Status) {
+            'Healthy' { 'Green' }
+            'Unhealthy' { 'Yellow' }
+            'Failed' { 'Red' }
+            default { 'Gray' }
+        }
+        
+        $Line = "║  $StatusSymbol  $($ServiceName.PadRight(20)) Port: $($Service.Port.ToString().PadRight(5)) [$Status]"
+        Write-Host $Line.PadRight(72) "║" -ForegroundColor $StatusColor
+    }
+    
+    Write-Host "╚═══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    
+    if ($Script:FailedServices.Count -gt 0) {
+        Write-Host "`n⚠ Failed services: $($Script:FailedServices -join ', ')" -ForegroundColor Yellow
+        Write-Host "Check logs in: $Script:LogDir" -ForegroundColor Yellow
+    }
+    
+    # Display access URLs
+    Write-Host "`n╔═══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+    Write-Host "║                          ACCESS URLS                                  ║" -ForegroundColor Magenta
+    Write-Host "╠═══════════════════════════════════════════════════════════════════════╣" -ForegroundColor Magenta
+    Write-Host "║  Cortex Dashboard:  http://localhost:5173                            ║" -ForegroundColor White
+    Write-Host "║  InGress API:       http://localhost:8000/docs                       ║" -ForegroundColor White
+    Write-Host "║  InGest API:        http://localhost:8766/docs                       ║" -ForegroundColor White
+    Write-Host "║  OmegaKG API:       http://localhost:8765/docs                       ║" -ForegroundColor White
+    Write-Host "║  memOS API:         http://localhost:8768/docs                       ║" -ForegroundColor White
+    Write-Host "║  Neo4j Browser:     http://localhost:7474                            ║" -ForegroundColor White
+    Write-Host "╚═══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+    
+    return $HealthyCount -eq $TotalCount
+}
+
+# ============================================================================
+# CLEANUP & SHUTDOWN
+# ============================================================================
+
+function Stop-Ecosystem {
+    Write-Banner "SHUTTING DOWN ECOSYSTEM"
+    
+    Write-Log -Message "Stopping all services gracefully..." -Level Info
+    
+    # Stop in reverse priority order
+    $ServicesByPriority = $Script:ServiceProcesses.GetEnumerator() |
+        Sort-Object { $Script:Services[$_.Key].Priority } -Descending
+    
+    foreach ($Entry in $ServicesByPriority) {
+        $ServiceName = $Entry.Key
+        $Process = $Entry.Value
+        
+        try {
+            if (-not $Process.HasExited) {
+                Write-Log -Message "Stopping service (PID: $($Process.Id))..." -Level Info -Service $ServiceName
+                $Process.Kill()
+                $Process.WaitForExit(5000)  # Wait up to 5 seconds
+                Write-Log -Message "Service stopped" -Level Success -Service $ServiceName
+            }
+        }
+        catch {
+            Write-Log -Message "Error stopping service: $_" -Level Warning -Service $ServiceName
+        }
+    }
+    
+    Write-Log -Message "Shutdown complete" -Level Success
+}
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
+
 try {
-    $env:PYTHONUTF8 = "1"
+    $Success = Start-Ecosystem
     
-    Write-InfoLog "========================================"
-    Write-InfoLog "Soma Ecosystem Launcher v2.0"
-    Write-InfoLog "========================================"
-    Write-InfoLog "Mode: $(if ($ShowConsole) { 'DEBUG (Visible)' } else { 'PRODUCTION (Hidden)' })"
-    Write-InfoLog "Watchdog: $(if ($Persistent) { 'ENABLED' } else { 'DISABLED' })"
-    Write-InfoLog "Migrations: $(if ($SkipMigrations) { 'SKIPPED' } else { 'ENABLED' })"
-    Write-InfoLog "Contracts: $(if ($SkipContracts) { 'SKIPPED' } else { 'ENABLED' })"
-    Write-InfoLog ""
-    
-    if (-not $SkipCleanup) {
-        Write-InfoLog "Performing pre-flight cleanup..."
-        foreach ($svc in @("InGress", "InGest", "OmegaKG", "memOS", "Cortex")) {
-            Stop-ServiceProcesses -Pattern $svc.ToLower() -ServiceName $svc
-        }
-        Write-Success "Cleanup complete"
-        Write-InfoLog ""
+    if ($Persistent -and $Success) {
+        Start-WatchdogLoop
     }
-    
-    if (-not $SkipInfrastructure) {
-        Initialize-Databases -SkipMigrations:$SkipMigrations
-        Write-InfoLog ""
+    elseif (-not $Persistent) {
+        Write-Host "`nPress any key to stop all services..." -ForegroundColor Cyan
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
     }
-    
-    if (-not $SkipIngress) {
-        Start-Ingress -ShowConsole:$ShowConsole
-        Write-InfoLog ""
-    }
-    
-    if (-not $SkipIngest) {
-        Start-Ingest -ShowConsole:$ShowConsole
-        Write-InfoLog ""
-    }
-    
-    if (-not $SkipOmegaKG) {
-        Start-OmegaKG -ShowConsole:$ShowConsole
-        Write-InfoLog ""
-    }
-    
-    if (-not $SkipMemOS) {
-        Start-MemOS -ShowConsole:$ShowConsole
-        Write-InfoLog ""
-    }
-    
-    if (-not $SkipCortex) {
-        Start-Cortex -ShowConsole:$ShowConsole
-        Write-InfoLog ""
-    }
-    
-    Show-EcosystemStatus
-    
-    $failedCount = $global:ServicesFailed.Count
-    if ($failedCount -gt 0) {
-        Write-WarnLog "========================================"
-        Write-WarnLog "WARNING: $failedCount service(s) failed to start"
-        Write-WarnLog "========================================"
-        foreach ($svc in $global:ServicesFailed.Keys) {
-                Write-WarnLog "  - ${svc}: $($global:ServicesFailed[$svc])"
-        }
-        Write-WarnLog "========================================"
-        Write-InfoLog ""
-    }
-    
-    if ($Persistent) {
-        Start-Watchdog
-    } else {
-        Write-Success "Ecosystem startup complete!"
-        Write-InfoLog "All services are running independently."
-        Write-InfoLog "Use -Persistent flag for watchdog monitoring."
-    }
-    
-} catch {
-    Write-ErrorLog "FATAL ERROR: $($_.Exception.Message)"
-    Write-ErrorLog $_.ScriptStackTrace
-    exit 1
+}
+catch {
+    Write-Log -Message "Fatal error: $_" -Level Error
+    Write-Log -Message "Stack trace: $($_.ScriptStackTrace)" -Level Debug
+}
+finally {
+    Stop-Ecosystem
 }

@@ -1,18 +1,17 @@
 import asyncio
 import logging
 import os
-import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-import uvicorn
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase, basic_auth
 from sqlalchemy import text
 
 from omega_kg.routers import linear_receiver, github_receiver
 from omega_kg.routers import guardian
+from omega_kg.routers import config  # TN-CTX-203: Config management router
 from omega_kg.settings import settings
 from omega_kg.database.session import get_db
 
@@ -63,7 +62,8 @@ async def lifespan(app: FastAPI):
                 app.state.neo4j_driver = GraphDatabase.driver(
                     NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD)
                 )
-                app.state.neo4j_driver.verify_connectivity()
+                # Run blocking verify_connectivity() in thread pool
+                await asyncio.to_thread(app.state.neo4j_driver.verify_connectivity)
                 logger.info("Hippocampus (Neo4j) Connected.")
                 break
             except Exception as e:
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
                 logger.error(
                     f"Hippocampus Connection Failed: {e}. Retrying in {wait}s..."
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
         else:
             logger.critical(
                 "Hippocampus Unreachable. Brain operating in detached mode."
@@ -83,7 +83,8 @@ async def lifespan(app: FastAPI):
         logger.info("Application startup: Initializing Codex")
         try:
             codex = Codex()
-            codex.connect()
+            # Run blocking connect() in thread pool to avoid blocking event loop
+            await asyncio.to_thread(codex.connect)
             logger.info("[OK] Codex initialized and connected")
         except Exception as e:
             logger.warning(
@@ -173,6 +174,9 @@ v1_router.include_router(capture.router)
 # Telemetry - /v1/telemetry/*
 v1_router.include_router(telemetry.router)
 
+# Configuration - /v1/config/* (TN-CTX-203)
+v1_router.include_router(config.router)
+
 # MCP router for intelligence layer tools - /v1/mcp/*
 mcp_router = APIRouter(prefix="/mcp", tags=["MCP"])
 
@@ -243,6 +247,8 @@ async def health_check():
 
 # --- EXECUTION ENTRY POINT ---
 if __name__ == "__main__":
+    import uvicorn
+
     # This runs when Docker calls 'python -m omega_kg.main'
     uvicorn.run(
         "omega_kg.main:app",

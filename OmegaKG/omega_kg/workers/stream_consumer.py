@@ -38,13 +38,13 @@ log = structlog.get_logger()
 
 # Redis Config
 REDIS_URL = os.getenv("SOMA_REDIS_URL", "redis://localhost:6380/0")
-WORKING_MEMORY_STREAM = os.getenv("SOMA_WORKING_MEMORY_STREAM", "soma_working_memory")
+WORKING_MEMORY_STREAM = os.getenv("SOMA_WORKING_MEMORY_STREAM", "soma:digestion:stream")
 DLQ_STREAM = f"{WORKING_MEMORY_STREAM}:dlq"
 
 # Docker Model Runner Config (injected by docker-compose models block)
 EMBED_BASE_URL = os.getenv("EMBED_BASE_URL", "http://model-runner.docker.internal")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "ai/qwen3-embedding:0.6B-F16")
-EMBED_DIMENSION = int(os.getenv("SOMA_EMBED_DIMENSION", "1024"))
+EMBED_DIMENSION = int(os.getenv("SOMA_EMBED_DIMENSION", "768"))
 
 # Neo4j Config
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -58,11 +58,11 @@ BATCH_SIZE = int(os.getenv("SOMA_CONSUMER_BATCH_SIZE", "10"))
 BLOCK_MS = int(os.getenv("SOMA_CONSUMER_BLOCK_MS", "5000"))
 
 
-class AtomicFactNode(BaseModel):
-    """Pydantic model for Neo4j AtomicFact node."""
+class AtomicMemNode(BaseModel):
+    """Pydantic model for Neo4j AtomicMem node."""
 
     text: str
-    text_hash: str
+    mem_hash: str
     metadata: Dict[str, Any]
     embedding: List[float]
     source: str
@@ -269,29 +269,32 @@ class StreamConsumer:
         text = atomic_fact.get("text", "")
         metadata = atomic_fact.get("metadata", {})
 
-        # Generate hash for deduplication
-        text_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
+        # Generate hash for deduplication (mem_hash per SimpleMem v2.0)
+        mem_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
 
         cypher = """
-        MERGE (f:AtomicFact {text_hash: $text_hash})
+        MERGE (m:AtomicMem {mem_hash: $mem_hash})
         ON CREATE SET
-            f.text = $text,
-            f.metadata = $metadata,
-            f.embedding = $embedding,
-            f.source = $source,
-            f.event_type = $event_type,
-            f.created_at = datetime(),
-            f.processed_at = datetime()
+            m.text = $text,
+            m.content = $text,
+            m.metadata = $metadata,
+            m.embedding = $embedding,
+            m.source = $source,
+            m.event_type = $event_type,
+            m.created_at = datetime(),
+            m.processed_at = datetime()
         ON MATCH SET
-            f.processed_at = datetime(),
-            f.embedding = $embedding
-        RETURN elementId(f) as node_id
+            m.processed_at = datetime(),
+            m.last_accessed = datetime(),
+            m.embedding = $embedding,
+            m.reinforcement_count = coalesce(m.reinforcement_count, 0) + 1
+        RETURN elementId(m) as node_id
         """
 
         async with self._neo4j_driver.session() as session:
             result = await session.run(
                 cypher,
-                text_hash=text_hash,
+                mem_hash=mem_hash,
                 text=text,
                 metadata=json.dumps(metadata),  # Neo4j stores as string
                 embedding=embedding,

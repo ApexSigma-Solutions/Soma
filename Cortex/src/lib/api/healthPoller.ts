@@ -1,4 +1,4 @@
-import { ApiClient, ApiHealth, omegaClient, ingestClient, memosClient } from '@/lib/api/client';
+import { ApiClient, ApiHealth, omegaClient, ingestClient, memosClient, ingressClient } from '@/lib/api/client';
 import { useAlertStore } from '@/lib/store/useAlertStore';
 
 export type HealthUpdateCallback = (health: ApiHealth[]) => void;
@@ -14,7 +14,7 @@ export class HealthPoller {
 
   constructor(pollInterval = 10000) {
     this.pollInterval = pollInterval;
-    this.clients = [omegaClient, ingestClient, memosClient];
+    this.clients = [omegaClient, ingestClient, memosClient, ingressClient];
   }
 
   async checkAllHealth(): Promise<ApiHealth[]> {
@@ -35,7 +35,7 @@ export class HealthPoller {
           title: `${health.name} Service Unavailable`,
           message: health.error || 'Connection failed. Check service status.',
           severity: 'critical',
-          service: health.name.toLowerCase() as 'omega' | 'ingest' | 'memos',
+          service: health.name.toLowerCase() as 'omega' | 'ingest' | 'memos' | 'ingress',
         });
       }
       

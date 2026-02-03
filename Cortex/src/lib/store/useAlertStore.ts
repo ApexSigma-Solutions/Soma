@@ -7,7 +7,7 @@ export interface SystemAlert {
   title: string;
   message: string;
   severity: AlertSeverity;
-  service?: 'omega' | 'ingest' | 'memos';
+  service?: 'omega' | 'ingest' | 'memos' | 'ingress';
   dismissed: boolean;
   createdAt: Date;
 }
@@ -17,6 +17,7 @@ interface AlertStore {
   addAlert: (alert: Omit<SystemAlert, 'id' | 'dismissed' | 'createdAt'>) => void;
   dismissAlert: (id: string) => void;
   clearAlerts: () => void;
+  clearAllAlerts: () => void;
 }
 
 export const useAlertStore = create<AlertStore>((set) => ({
@@ -39,4 +40,5 @@ export const useAlertStore = create<AlertStore>((set) => ({
       ),
     })),
   clearAlerts: () => set({ alerts: [] }),
+  clearAllAlerts: () => set({ alerts: [] }),
 }));

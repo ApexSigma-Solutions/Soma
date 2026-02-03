@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { memosApi, MirmirResponse } from '@/lib/api/client';
-import { Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { memosApi } from '@/lib/api/client';
+import type { MirmirConsultationResult } from '@/lib/api/types/memos';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
 export function MimirQueryPanel() {
   const [query, setQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [result, setResult] = useState<MirmirResponse['result'] | null>(null);
+  const [result, setResult] = useState<MirmirConsultationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,11 +22,11 @@ export function MimirQueryPanel() {
     setError(null);
 
     try {
-      const response = await memosApi.consultMirmir(query);
-      if (response.status === 'success') {
-          setResult(response.result);
+      const response = await memosApi.consultMirmir({ plan: query });
+      if (response.status && response.status !== 'success') {
+          setError(response.result ?? 'Failed to consult Mirmir.');
       } else {
-          setError('Failed to consult Mirmir.');
+          setResult(response);
       }
     } catch (err) {
         let msg = 'Consultation failed';
@@ -69,23 +70,23 @@ export function MimirQueryPanel() {
              <div className="flex-1 rounded-md border p-4 overflow-auto">
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm">Verdict:</span>
-                        {result.approved ? (
-                            <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600">APPROVED</Badge>
-                        ) : (
-                            <Badge variant="destructive">REJECTED</Badge>
+                        <span className="font-semibold text-sm">Recommendation</span>
+                        {result.status && (
+                            <Badge
+                                variant={result.status === 'success' ? 'default' : 'destructive'}
+                                className={result.status === 'success' ? 'bg-emerald-500 hover:bg-emerald-600' : undefined}
+                            >
+                                {result.status.toUpperCase()}
+                            </Badge>
                         )}
                     </div>
-                    
-                    <div className="space-y-1">
-                         <div className="text-xs font-medium text-muted-foreground">Risk Score:</div>
-                         <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                             <div 
-                                className={`h-full ${result.risk_score > 0.5 ? 'bg-destructive' : 'bg-emerald-500'}`} 
-                                style={{ width: `${result.risk_score * 100}%` }}
-                             />
-                         </div>
-                         <div className="text-xs text-right text-muted-foreground">{(result.risk_score * 100).toFixed(0)}%</div>
+
+                    <div className="text-sm">
+                        {result.recommendation}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                        Confidence: {Number.isFinite(result.confidence) ? `${Math.round(result.confidence * 100)}%` : '--'}
                     </div>
 
                     <div className="text-sm">
@@ -93,18 +94,14 @@ export function MimirQueryPanel() {
                         {result.reasoning}
                     </div>
 
-                    {result.citations.length > 0 && (
+                    {result.suggested_actions && result.suggested_actions.length > 0 && (
                         <div className="space-y-2">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Citations</span>
-                            {result.citations.map((c, i) => (
-                                <div key={i} className="text-xs p-2 bg-muted rounded border flex gap-2 items-start">
-                                    <AlertTriangle className={`h-3 w-3 mt-0.5 ${c.severity === 'CRITICAL' ? 'text-destructive' : 'text-yellow-500'}`} />
-                                    <div>
-                                        <div className="font-mono font-bold text-[10px]">{c.rule_id}</div>
-                                        <div>{c.content}</div>
-                                    </div>
-                                </div>
-                            ))}
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">Suggested Actions</span>
+                            <ul className="space-y-1">
+                                {result.suggested_actions.map((action, i) => (
+                                    <li key={i} className="text-xs text-muted-foreground">• {action}</li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>

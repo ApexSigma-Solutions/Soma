@@ -34,7 +34,8 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       setMessage(`Successfully ingested ${file.name}`);
       toast.success('Document processed successfully');
       setFile(null);
-      if (onSuccess) onSuccess(res.ingestion_id);
+      const ref = res.ref ?? res.id;
+      if (onSuccess && ref) onSuccess(ref);
     } catch (err: any) {
       setStatus('error');
       setMessage(err.message || 'Failed to upload document');

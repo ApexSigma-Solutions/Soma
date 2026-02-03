@@ -10,7 +10,7 @@ Important project convention:
 
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -98,6 +98,15 @@ class Settings(BaseSettings):
     neo4j_uri: str = Field(default="bolt://localhost:7687", description="Neo4j URI")
     neo4j_user: str = Field(default="neo4j", description="Neo4j User")
     neo4j_password: str = Field(default="aDQUU5$@1dpuj5", description="Neo4j Password")
+
+    # --- Runtime Configuration (TN-CTX-203) ---
+    # Hot-reloadable runtime settings for metabolic control
+    entropy_threshold: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="Minimum entropy for digestion (Metabolic Gate) - dynamically adjustable",
+    )
 
     # Logging (observability stack removed; keep basic log level control)
     log_level: str = Field(default="INFO", description="Log level")

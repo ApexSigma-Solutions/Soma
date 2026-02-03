@@ -4,11 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Brain, Zap, Activity, Send, Loader2, AlertCircle } from 'lucide-react';
-import { useNeuralPulse } from '@/hooks/useNeuralPulse';
+import { useSystemTelemetry } from '@/hooks/useSystemTelemetry';
+import { PeristalticFlow } from '@/components/visualization/PeristalticFlow';
 import { ingressApi } from '@/lib/api/client';
 
 export function CortexBridge() {
-  const { events, connected, error: pulseError, latestEvent } = useNeuralPulse();
+  const { telemetry, connected, error: pulseError } = useSystemTelemetry();
   const [sensationText, setSensationText] = useState('');
   const [isInitiating, setIsInitiating] = useState(false);
 
@@ -28,7 +29,7 @@ export function CortexBridge() {
       });
       
       console.log('Sensation captured:', response.ref);
-      setSensationText(''); // Clear input
+      setSensationText('');
     } catch (error) {
       console.error('Failed to initiate sensation:', error);
     } finally {
@@ -36,7 +37,8 @@ export function CortexBridge() {
     }
   };
 
-  // Calculate stats from events
+  const allConnected = connected;
+  const events = telemetry.senses.eventBuffer;
   const highEntropyCount = events.filter(e => e.metadata.entropy > 0.35).length;
   const reductionRate = events.length > 0 
     ? Math.round((highEntropyCount / events.length) * 100)
@@ -55,9 +57,9 @@ export function CortexBridge() {
           </p>
         </div>
         <div className="flex items-center gap-2 bg-teal-500/10 border border-teal-500/20 rounded-lg px-4 py-2 glass-panel">
-          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-teal-500 animate-pulse shadow-[0_0_8px_rgba(0,191,166,0.8)]' : 'bg-red-500'}`}></div>
+          <div className={`w-2 h-2 rounded-full ${allConnected ? 'bg-teal-500 animate-pulse shadow-[0_0_8px_rgba(0,191,166,0.8)]' : 'bg-red-500'}`}></div>
           <span className="text-[10px] text-foreground font-mono uppercase tracking-widest font-bold">
-            {connected ? 'Neural Link Active' : 'Neural Link Offline'}
+            {allConnected ? 'Neural Link Active' : 'Neural Link Offline'}
           </span>
         </div>
       </div>
@@ -72,9 +74,16 @@ export function CortexBridge() {
         </Card>
       )}
 
+      {/* Peristaltic Flow Visualization */}
+      <PeristalticFlow telemetry={telemetry} />
+
       {/* Main Content Tabs */}
       <Tabs defaultValue="senses" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-card/50 border border-teal-500/10 p-1">
+        <TabsList className="grid w-full grid-cols-4 bg-card/50 border border-teal-500/10 p-1">
+          <TabsTrigger value="flow" className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-400">
+            <Activity className="w-4 h-4 mr-2" />
+            Flow
+          </TabsTrigger>
           <TabsTrigger value="senses" className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-400">
             <Zap className="w-4 h-4 mr-2" />
             Senses
@@ -88,6 +97,34 @@ export function CortexBridge() {
             Brain
           </TabsTrigger>
         </TabsList>
+
+        {/* Flow Tab - Peristaltic Flow already shown above, but providing details here */}
+        <TabsContent value="flow" className="space-y-6">
+          <Card className="glass-panel border-teal-500/10">
+            <CardHeader>
+              <CardTitle className="text-lg font-black tracking-tighter uppercase italic">Peristaltic Flow Details</CardTitle>
+              <CardDescription className="font-mono text-[10px] tracking-wider">
+                Real-time pipeline visualization showing data movement through biological systems
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-teal-500/10 rounded-lg">
+                  <p className="text-sm font-bold text-teal-400">Senses Queue</p>
+                  <p className="text-2xl font-mono">{telemetry.senses.eventBuffer.length}</p>
+                </div>
+                <div className="text-center p-4 bg-blue-500/10 rounded-lg">
+                  <p className="text-sm font-bold text-blue-400">Stomach Queue</p>
+                  <p className="text-2xl font-mono">{telemetry.stomach.queueDepth}</p>
+                </div>
+                <div className="text-center p-4 bg-purple-500/10 rounded-lg">
+                  <p className="text-sm font-bold text-purple-400">Brain Nodes</p>
+                  <p className="text-2xl font-mono">{telemetry.brain.nodeCount}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Senses Tab */}
         <TabsContent value="senses" className="space-y-6">
@@ -275,18 +312,55 @@ export function CortexBridge() {
         <TabsContent value="brain" className="space-y-6">
           <Card className="glass-panel border-teal-500/10">
             <CardHeader>
-              <CardTitle className="text-lg font-black tracking-tighter uppercase italic">OmegaKG Persistence</CardTitle>
+              <CardTitle className="text-lg font-black tracking-tighter uppercase italic">OmegaKG Knowledge Graph</CardTitle>
               <CardDescription className="font-mono text-[10px] tracking-wider">
-                Neo4j Graph Consumer (Coming Soon)
+                Real-time Neo4j metrics from the Brain layer
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-20 text-muted-foreground">
-                <Brain className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm font-mono mb-2">Brain telemetry not yet implemented</p>
-                <p className="text-xs text-muted-foreground/50">
-                  Will show Neo4j node/relationship creation metrics
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Total Nodes */}
+                <div className="text-center p-6 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                  <Brain className="w-12 h-12 mx-auto mb-3 text-purple-500" />
+                  <p className="text-4xl font-black text-purple-400 font-mono">
+                    {telemetry.brain.nodeCount.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Total Atomic Facts</p>
+                </div>
+
+                {/* Average Connectivity */}
+                <div className="text-center p-6 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                  <Activity className="w-12 h-12 mx-auto mb-3 text-purple-500" />
+                  <p className="text-4xl font-black text-purple-400 font-mono">
+                    {telemetry.brain.avgConnectivity.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Avg Connectivity</p>
+                </div>
+
+                {/* Embedding Dimension */}
+                <div className="text-center p-6 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                  <Zap className="w-12 h-12 mx-auto mb-3 text-purple-500" />
+                  <p className="text-4xl font-black text-purple-400 font-mono">
+                    {telemetry.brain.embeddingDimension}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Embedding Dimension</p>
+                </div>
+              </div>
+
+              {/* Connection Status */}
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                  telemetry.brain.connected 
+                    ? 'bg-green-500/10 text-green-400' 
+                    : 'bg-red-500/10 text-red-400'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${
+                    telemetry.brain.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                  }`} />
+                  <span className="text-sm font-mono">
+                    {telemetry.brain.connected ? 'Connected to Neo4j' : 'Neo4j Disconnected'}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>

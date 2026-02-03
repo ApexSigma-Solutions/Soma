@@ -1,0 +1,85 @@
+# --- Soma Polyglot Monorepo .gitignore ---
+
+# --- Global / IDE ---
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# --- Secrets & Environment ---
+.env
+.env.*
+!.env.example
+!.env.example.*
+.env.local
+.env.local.*
+*.pem
+*.key
+secrets/
+
+# --- Python (Poetry/VirtualEnv) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.virtualenv/
+dist/
+build/
+*.egg-info/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+
+# --- Node / JavaScript / TypeScript ---
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+coverage/
+
+# --- Docker ---
+.dockerignore
+docker-compose.override.yml
+docker_backups/
+
+# --- Application Specific ---
+
+# OmegaVault (Knowledge Graph Data)
+OmegaVault/
+omegavault.as/
+test_vault/
+
+# Dagster (InGest)
+dagster_home/
+InGest/src/ingest_llm_as/dagster_home/
+
+# Logs
+logs/
+*.log
+
+# --- Temporary / Deprecated Folders ---
+Omega_KG_stable/
+Omega_KG_dev/
+Omega_KG_temp/
+.archive/
+InGest/.venv/
+
+data/
+nul
+InGress/nul
+.poetry-cache/
+sessions/
+archive/
+backups/
+nul

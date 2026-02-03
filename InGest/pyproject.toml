@@ -58,7 +58,7 @@ ollama = "^0.4"
 # BM25 for lexical search
 rank-bm25 = "^0.2"
 # SimpleMem Stage 1 (Stomach)
-coreferee = "^1.4.0"
+fastcoref = "^2.1.6"
 dateparser = "^1.2.0"
 
 [tool.poetry.group.dev.dependencies]

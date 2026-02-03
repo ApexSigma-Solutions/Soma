@@ -1,0 +1,372 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Cortex API Contract",
+    "description": "API contract between Cortex dashboard and Soma backend services",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Soma Development Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "InGress (Senses)"
+    },
+    {
+      "url": "http://localhost:8766",
+      "description": "InGest (Stomach)"
+    },
+    {
+      "url": "http://localhost:8765",
+      "description": "OmegaKG (Brain)"
+    },
+    {
+      "url": "http://localhost:8768",
+      "description": "memOS (Hands)"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Returns service health status",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "role": {
+                      "type": "string",
+                      "example": "Senses"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/vitals": {
+      "get": {
+        "summary": "Get system vitals",
+        "description": "Returns CPU, memory, and disk usage statistics",
+        "parameters": [
+          {
+            "name": "x_api_key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System vitals retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemVitals"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/manual/ingest": {
+      "post": {
+        "summary": "Manual signal ingestion",
+        "description": "Manually ingest a signal/event into the system",
+        "parameters": [
+          {
+            "name": "x_api_key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualIngestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signal captured successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/stream": {
+      "get": {
+        "summary": "Telemetry SSE stream",
+        "description": "Server-sent events stream for real-time telemetry",
+        "responses": {
+          "200": {
+            "description": "SSE stream established",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryEvent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "post": {
+        "summary": "Semantic search",
+        "description": "Search knowledge graph using vector similarity",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticSearchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/v1/tools/list": {
+      "get": {
+        "summary": "List MCP tools",
+        "description": "Returns list of available MCP tools",
+        "responses": {
+          "200": {
+            "description": "Tools list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SystemVitals": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "object",
+            "properties": {
+              "percent": {
+                "type": "number"
+              },
+              "cores": {
+                "type": "integer"
+              }
+            }
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "percent": {
+                "type": "number"
+              },
+              "available_mb": {
+                "type": "number"
+              }
+            }
+          },
+          "disk": {
+            "type": "object",
+            "properties": {
+              "percent": {
+                "type": "number"
+              },
+              "free_gb": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "ManualIngestRequest": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "manual"
+          },
+          "event_type": {
+            "type": "string",
+            "example": "user_action"
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "required": ["payload"]
+      },
+      "IngestResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "captured"
+          },
+          "ref": {
+            "type": "string",
+            "example": "uuid-string"
+          }
+        }
+      },
+      "TelemetryEvent": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SemanticSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 10
+          },
+          "threshold": {
+            "type": "number",
+            "default": 0.7
+          },
+          "hybrid": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": ["query"]
+      },
+      "SemanticSearchResult": {
+        "type": "object",
+        "properties": {
+          "facts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AtomicFact"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "query_time_ms": {
+            "type": "integer"
+          }
+        }
+      },
+      "AtomicFact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "embedding": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "similarity": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x_api_key"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}

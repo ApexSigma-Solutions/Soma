@@ -1,246 +1,253 @@
-# AGENTS.md
+# SOMA ORGANISM KNOWLEDGE BASE
 
-**Purpose:** Entry point for agents working with the Soma ecosystem. This document provides modular guidance for coding, testing, architecture, and the biomorphic signal pipeline (Senses -> Stomach -> Brain).
+**Generated:** 2026-01-30
+**Commit:** 53cf8b3
+**Branch:** beta
 
-**Last Updated:** 2026-01-28 (Soma Genesis v2.0)
+## OVERVIEW
 
----
+Biomorphic distributed knowledge ecosystem: Senses (InGress FastAPI) → Stomach (InGest metabolism) → Brain (OmegaKG Neo4j) → Hands (memOS MCP). React dashboard (Cortex). Organism executes via `start_ecosystem.ps1`.
 
-## Quick Start
+## STRUCTURE
 
-- **Read this file** for the biomorphic mental model.
-- **Executive Workflow (Robust):** Use `start_ecosystem.ps1` to manage all services with health checks, migrations, and contract validation.
-- **Executive Workflow (Debug):** Use `orchestrator.py` for basic service spawning.
-- **Verification:** Always run `.\scripts\operations\trace-meal.ps1` after changes.
-- **Contract Validation:** Use `python contracts/validate_contracts.py` to verify service contracts.
-- **Migrations:** Use `python scripts/database/migrate_all.py upgrade` for database schema updates.
-- **Vault Root:** `OmegaVault/ApexSigma/Development/Projects/Soma/`
+```
+Soma/
+├── InGress/           # Sensory layer (FastAPI port 8000)
+├── InGest/            # SimpleMem Stage 1 metabolism
+├── OmegaKG/           # Neo4j persistence + capture server (port 8765)
+├── memOS/             # FastMCP 2.0 server (port 8768)
+├── Cortex/            # React 19 + Vite dashboard (port 5173)
+├── OmegaVault/        # Obsidian knowledge vault
+├── contracts/         # API contract validation (JSON schemas)
+├── scripts/           # Operations (database/, operations/, infrastructure/)
+└── orchestrator.py    # Legacy startup (use start_ecosystem.ps1 instead)
+```
 
----
+## WHERE TO LOOK
 
-## Essential Commands
+| Task | Location | Notes |
+|------|----------|-------|
+| Start all services | `start_ecosystem.ps1` | Robust: migrations, health checks, contracts |
+| Legacy startup | `orchestrator.py` | Basic spawning, no validation |
+| End-to-end verification | `scripts/operations/trace-meal.ps1` | ALWAYS run after changes |
+| API contracts | `contracts/*.json` + `validate_contracts.py` | Pre-flight validation |
+| Database migrations | `scripts/database/migrate_all.py` | Alembic for all services |
+| Signal capture | `InGress/soma_ingress/` | Thin sensory layer |
+| Metabolism logic | `InGest/src/ingest_llm_as/` | Heavy digestion (entropy, coreference, temporal) |
+| Graph persistence | `OmegaKG/omega_kg/consumer.py` | Redis stream → Neo4j |
+| MCP tools | `memOS/src/memos_mcp/logic.py` | Retrieval, scratchpad, promotion |
+| Dashboard UI | `Cortex/src/` | Neural telemetry, meal traces |
+| Vault integration | `OmegaVault/ApexSigma/Development/Projects/Soma/` | Architecture docs, governance |
 
-### Executive Life-Support (Recommended)
+## CONVENTIONS
 
+**Hybrid Architecture (Windows + Docker):**
+- DATA LAYER: Docker (Postgres:6000, Neo4j:7687, Redis:6380)
+- LOGIC LAYER: Host (Python services)
+- Host → Docker: Use `localhost:<port>`, NOT container names
+
+**Python (InGress, InGest, OmegaKG, memOS):**
+- Poetry-managed, Python 3.12+
+- `from __future__ import annotations` required
+- Ruff format (line-length 88)
+- Type hints MANDATORY for public functions
+- Async Neo4j: `async with graph_driver.session()` ALWAYS
+- File I/O: `encoding="utf-8"` MANDATORY
+- Imports: isort ordering (standard, third-party, local)
+- Naming: `snake_case` functions, `PascalCase` classes, `UPPER_SNAKE_CASE` constants
+- Error handling: Specific exceptions + structlog context
+- NO comments unless explicitly requested
+
+**TypeScript/React (Cortex):**
+- Strict TypeScript, no `any` unless critical
+- Zustand for global state (no Redux/Context)
+- Tailwind CSS classes only (no inline styles)
+- ESLint + Prettier enforced
+- Components `PascalCase`, functions `camelCase`
+
+**Settings Pattern (Divergent by Service):**
+- InGest: `get_settings()` NOT cached (reloads .env each call)
+- memOS: Pydantic BaseSettings with `.env` file
+- OmegaKG: Bitwarden → env → defaults (`.env.example` canonical)
+
+**Database Patterns:**
+- Neo4j: async context managers prevent leaks
+- PostgreSQL: SQLAlchemy with context manager sessions
+- Redis: Working memory TTL-based cache
+- Qdrant: Optional vector search (graceful degradation)
+
+## ANTI-PATTERNS (THIS PROJECT)
+
+❌ **InGress complexity** - Keep sensory layer thin, metabolism goes in InGest
+❌ **Container names from host** - Use `localhost:<port>` not `apexsigma.neo4j.soma`
+❌ **Skipping meal trace** - ALWAYS verify with `trace-meal.ps1` after changes
+❌ **Direct DB instantiation** - Use factories: `get_database()`, `get_settings()`
+❌ **Cached settings (InGest)** - Call `get_settings()` fresh each time
+❌ **Missing encoding** - File I/O without `encoding="utf-8"` breaks Windows
+❌ **Sync Neo4j sessions** - Use async context managers ONLY
+❌ **Bypassing contracts** - Validate with `validate_contracts.py` before deploy
+❌ **Skipping migrations** - Run `migrate_all.py upgrade` before schema changes hit prod
+
+## UNIQUE STYLES
+
+**Biomorphic Terminology:**
+- "Senses" not "API ingestion"
+- "Stomach" not "processing pipeline"
+- "Brain" not "knowledge graph"
+- "Meal Trace" not "end-to-end test"
+- "Nervous System" = Redis streams
+- "Codex" = Neo4j long-term memory
+
+**Tier Mapping (memOS):**
+- MCP_GEMINI/COPILOT/QWEN → Procedural (Tier 2)
+- MCP_SYSTEM → Semantic (Tier 3)
+- Working memory → Redis (Tier 1)
+
+**Dual Persistence (OmegaKG):**
+- Tasks in Neo4j + Obsidian markdown (frontmatter sync)
+- Conversations captured to `OmegaVault/AI_Conversations/{platform}/`
+- UID-based task naming: `Tasks/**/{uid}*.md`
+
+**Entropy Gate (InGest):**
+- H > 0.35 threshold
+- Coreference resolution (spaCy/coreferee)
+- Temporal anchoring (dateparser)
+- Output: AtomicFact digests
+
+**POML Serialization (InGest):**
+- XML-based knowledge structures
+- See `InGest/prompts/` for examples
+
+## COMMANDS
+
+### Executive Startup (Recommended)
 ```powershell
-# Robust startup with health checks, migrations, and contract validation
+# Robust startup with migrations, health checks, contracts
 .\start_ecosystem.ps1
 
 # Debug mode (visible windows)
 .\start_ecosystem.ps1 -ShowConsole
 
-# Persistent mode (watchdog monitoring)
+# Persistent watchdog monitoring
 .\start_ecosystem.ps1 -Persistent
 
-# Combined flags
-.\start_ecosystem.ps1 -ShowConsole -Persistent
-
-# Skip specific components
+# Skip components
 .\start_ecosystem.ps1 -SkipMigrations -SkipContracts
 ```
 
-### Legacy Executive Life-Support
-
+### Legacy Startup
 ```powershell
-python orchestrator.py  # Start all organs (Senses, Stomach, Brain, Hands)
+python orchestrator.py  # Basic service spawning
 ```
 
-### Testing & Verification
-
+### Verification
 ```powershell
-# End-to-End Meal Trace
+# End-to-end meal trace
 .\scripts\operations\trace-meal.ps1
 
-# Cortex Bridge Neural Telemetry (Live UI Test)
+# Cortex live UI test
 cd Cortex && npm run dev
 # Navigate to http://localhost:5173/#cortex
+```
 
-# Python - Run all tests in an organ
+### Testing
+```bash
+# Python - per organ
 poetry run pytest InGress/ InGest/ OmegaKG/ memOS/
 
-# Python - Run single test file or function
-poetry run pytest InGest/tests/test_api.py -v
-poetry run pytest InGest/tests/test_api.py::test_specific_function -v
+# Python - single test
+poetry run pytest InGest/tests/test_api.py::test_function -v
 
-# Python - Run tests by marker
-poetry run pytest -m "unit" -m "integration" -m "not slow" -m "requires_neo4j"
+# Python - markers
+poetry run pytest -m "unit" -m "integration" -m "requires_neo4j"
 
-# Cortex (TypeScript/React) tests
+# Cortex
 cd Cortex && npm test
-cd Cortex && npm test -- src/components/Button.test.tsx
 ```
 
-### API Contracts & Validation
-
+### Contracts
 ```powershell
-# Validate all service contracts
+# Validate all
 python contracts/validate_contracts.py
 
-# Validate specific services
+# Validate specific
 python contracts/validate_contracts.py ingress ingest omegakg memos
-
-# Check contract status
-Get-Content contracts\*_contract.json | ConvertFrom-Json
 ```
 
-**Contract Files:**
-- `contracts/ingress_contract.json` - InGress API specification
-- `contracts/ingest_contract.json` - InGest API specification
-- `contracts/omegakg_contract.json` - OmegaKG API specification
-- `contracts/memos_contract.json` - memOS API specification
-
-**See:** [contracts/README.md](contracts/README.md) for detailed contract documentation
-
-### Database Migrations
-
+### Migrations
 ```powershell
-# Upgrade all services to latest migrations
+# Upgrade all
 python scripts/database/migrate_all.py upgrade
 
-# Check migration status
+# Check status
 python scripts/database/migrate_all.py status
 
-# Validate migration configuration
-python scripts/database/migrate_all.py validate
-
-# Upgrade specific service
+# Per-service
 python scripts/database/migrate_all.py upgrade --service InGest
-
-# Downgrade migrations (one revision)
-python scripts/database/migrate_all.py downgrade --service InGest
 ```
-
-**Migration Management:**
-- All services use Alembic for database migrations
-- Migrations are stored in `alembic/versions/` directories
-- Run `migrate_all.py validate` to check configuration
 
 ### Quality Gates
-
 ```bash
-# Python (run from each organ directory)
-pre-commit run --all-files
+# Python (per organ)
 poetry run ruff check --fix . && poetry run ruff format .
 poetry run mypy <organ_name>
+pre-commit run --all-files
 
-# Cortex (TypeScript/React)
-npm run lint && npm run build
+# Cortex
+cd Cortex && npm run lint && npm run build
 ```
 
----
+## NOTES
 
-## Code Style Guidelines
+**Memory Tiers:**
+- Tier 1 (Working): Redis, TTL-based, ephemeral
+- Tier 2 (Procedural): PostgreSQL, tools/procedures
+- Tier 3 (Semantic): Neo4j + vector, long-term graph
 
-### Python (InGest, InGress, OmegaKG, memOS)
+**Service Ports:**
+- InGress: 8000
+- OmegaKG: 8765 (capture server)
+- memOS: 8768 (MCP)
+- Cortex: 5173 (dev server)
+- Postgres: 6000 (host-mapped)
+- Neo4j: 7687 (bolt, host-mapped)
+- Redis: 6380 (host-mapped)
 
-**Imports:** `isort` ordering (standard, third-party, local). No `from module import *`. Use `from __future__ import annotations` for Python 3.12+.
+**Neo4j Connection Gotcha:**
+- OmegaKG auto-switches to mock mode on Neo4j failure
+- Health check: `RETURN 1` query
+- Always use async context managers
 
-**Formatting:** Ruff with line-length 88. Run `poetry run ruff format .` before committing.
+**Vector Embeddings:**
+- Qwen3-Embedding (768-dim)
+- Placeholder embeddings NOT production-ready
+- Qdrant optional, graceful degradation
 
-**Types:** Use type hints. Return type annotations required for public functions.
+**Settings Reload (InGest):**
+- `get_settings()` reloads .env each call
+- Intentional design for dynamic config
+- Do NOT cache module-level
 
-**Naming:** Functions `snake_case`, Classes `PascalCase`, Constants `UPPER_SNAKE_CASE`, Private methods `_leading_underscore`.
+**Task Lifecycle (OmegaKG):**
+- Draft → Ready → Active → Blocked → Completed → Archived
+- Auto-transitions every 5min (APScheduler)
+- Dual-write to Neo4j + Obsidian markdown
 
-**Error Handling:** Use specific exceptions. FastAPI endpoints raise `HTTPException`. Always log errors with context.
+**Chrome Extension (OmegaKG):**
+- JWT exchange: static API key → short-lived tokens
+- CORS requires exact extension ID
+- Writes to `AI_Conversations/{platform}/`
 
-```python
-from fastapi import HTTPException
-from structlog import get_logger
+**Contract Validation:**
+- JSON schemas in `contracts/`
+- Pre-flight via `validate_contracts.py`
+- start_ecosystem.ps1 enforces by default
 
-logger = get_logger(__name__)
-
-try:
-    result = await process_data(data)
-except ValueError as e:
-    logger.error("Invalid data", error=str(e), data=data)
-    raise HTTPException(status_code=400, detail=f"Invalid data: {e}")
-```
-
-**File I/O:** ALWAYS specify `encoding="utf-8"`.
-
-```python
-with open(filepath, "w", encoding="utf-8") as f:
-    f.write(content)
-```
-
-**Async Patterns:** Use async context managers for Neo4j/Redis sessions.
-
-```python
-async with graph_driver.session() as session:
-    result = await session.run("MATCH (n) RETURN n LIMIT 1")
-    record = await result.single()
-```
-
-**Comments:** NO comments unless explicitly requested.
-
-### TypeScript/React (Cortex)
-
-**Imports:** ES6 imports. No default imports for named exports.
-
-**Formatting:** ESLint + Prettier. Run `npm run lint` to check.
-
-**Types:** Strict TypeScript mode. No `any` unless absolutely necessary. Use interfaces for object shapes.
-
-**Naming:** Components `PascalCase`, Functions `camelCase`, Constants `UPPER_SNAKE_CASE`, Types/Interfaces `PascalCase`.
-
-**Error Handling:** Try/catch with toasts for user feedback.
-
-**Styling:** Tailwind CSS classes. Avoid inline styles. Custom tokens in `index.css`.
-
-**State Management:** Zustand stores. No Redux/Context API for global state.
+**Migration Discipline:**
+- Alembic per service
+- Run `migrate_all.py validate` first
+- Match `ENV_TYPE` (dev=ephemeral, stable=locked)
 
 ---
 
-## Top 5 Critical Patterns (The Soma Mental Model)
-
-### 1. The Meal Trace (E2E)
-
-**Architecture:** Senses (InGress) → Lake (Postgres) → Stomach (InGest) → Nervous System (Redis) → Brain (OmegaKG) → Persistence (Neo4j).
-
-**Pattern:** Never assume a service is "working" just because it's running. Always verify the *flow* of a signal through the entire organism.
-
-### 2. SimpleMem Stage 1 (Metabolism)
-
-**Process:** Signal arrives in Stomach → Entropy Gate (H > 0.35) → Coreference Resolution → Temporal Anchoring → Atomic Fact Synthesis.
-
-**Constraint:** InGest is the heavy-lifter. InGress must remain a thin sensory layer.
-
-### 3. Neo4j Async Context Managers MANDATORY
-
-**CRITICAL:** Always use async context managers for Neo4j sessions to prevent connection leaks.
-
-### 4. UTF-8 Encoding Required
-
-**CRITICAL:** All file I/O must specify `encoding="utf-8"`.
-
-### 5. Distributed DNS (Windows Host Access)
-
-**Pattern:** For services on Windows host connecting to Docker containers:
-- Use `localhost:<port>` for Postgres (6000), Neo4j (7687), Redis (6380).
-- DO NOT use container names (e.g., `apexsigma.neo4j.soma`) from the host logic layer.
-
----
-
-## Governance Documentation Index
-
-| Organ | Function | Document |
-| :--- | :--- | :--- |
-| **Senses** | Signal Capture | `InGress/README.md` |
-| **Stomach** | Metabolism | `InGest/README.md` |
-| **Brain** | Persistence | `OmegaKG/README.md` |
-| **Hands** | Actions (MCP) | `memOS/README.md` |
-| **Dashboard** | UI/Visualization | `Cortex/README.md` |
-
----
-
-## Component Coverage
-
-- **InGress**: FastAPI sensory layer (Port 8000).
-- **InGest**: SimpleMem Stage 1 metabolism poller.
-- **OmegaKG**: Neo4j persistence consumer (Port 8765/Consumer Group).
-- **memOS**: FastMCP 2.0 server (Port 8768).
-- **Cortex**: React 19 + TypeScript dashboard (Vite, Port 5173).
-
----
-
-*Keep this documentation alive. Update as the organism evolves.*
+*Updated 2026-01-30 - Genesis v2.0 → Beta refinement*

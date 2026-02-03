@@ -127,7 +127,7 @@ services:
     entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
     user: root
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - default
     environment:
@@ -160,7 +160,7 @@ services:
       context: ./memOS
       dockerfile: Dockerfile
     ports:
-      - "8768:8768"
+      - "127.0.0.1:8768:8768"
     networks:
       - default
     models:
@@ -202,8 +202,8 @@ services:
     image: neo4j:5-community
     container_name: apexsigma.neo4j.soma
     ports:
-      - "0.0.0.0:7474:7474"  # Browser UI - exposed for Tailscale
-      - "0.0.0.0:7687:7687"  # Bolt protocol - exposed for Tailscale
+      - "127.0.0.1:7474:7474"  # Browser UI
+      - "127.0.0.1:7687:7687"  # Bolt protocol
     networks:
       - default
     environment:
@@ -228,7 +228,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: apexsigma.postgres.soma
     ports:
-      - "0.0.0.0:6000:5432"  # Exposed on all interfaces for Tailscale access
+      - "127.0.0.1:6000:5432"  # Postgres (local only)
     networks:
       - default
     environment:
@@ -250,7 +250,7 @@ services:
     image: redis:7-alpine
     container_name: apexsigma.redis.soma
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     networks:
       - default
     command: redis-server --appendonly yes

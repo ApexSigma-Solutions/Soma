@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  
+  // Essential configuration - optimizes categories for available providers
+  // Replace models based on your available providers (check with: opencode models)
+  
+  "categories": {
+    // Fast/cheap for trivial tasks (typo fixes, imports)
+    "quick": { 
+      "model": "anthropic/claude-haiku-4-5" 
+    },
+    
+    // Frontend, UI/UX, design, styling
+    "visual-engineering": { 
+      "model": "google/gemini-3-pro-preview" 
+    },
+    
+    // Deep logical reasoning, complex architecture
+    "ultrabrain": { 
+      "model": "openai/gpt-5.2-codex",
+      "variant": "xhigh"
+    },
+    
+    // Documentation, prose, technical writing
+    "writing": { 
+      "model": "google/gemini-3-flash-preview" 
+    }
+  }
+}

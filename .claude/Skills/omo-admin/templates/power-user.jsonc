@@ -1,0 +1,91 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  
+  // Power user configuration - full agent/category optimization
+  // Customize based on your available providers and workflow
+  
+  // Override specific agents for optimal performance
+  "agents": {
+    "Sisyphus": {
+      "model": "anthropic/claude-opus-4-5",
+      "temperature": 0.3
+    },
+    
+    // GPT excels at debugging and architecture
+    "oracle": { 
+      "model": "openai/gpt-5.2",
+      "prompt_append": "Focus on architectural patterns, debugging, and design decisions."
+    },
+    
+    // Librarian for deep documentation research
+    "librarian": { 
+      "model": "anthropic/claude-sonnet-4-5",
+      "prompt_append": "Always use context7 MCP for official documentation lookups."
+    },
+    
+    // Fast/cheap model for exploration (or use free opencode/gpt-5-nano)
+    "explore": { 
+      "model": "anthropic/claude-haiku-4-5" 
+    },
+    
+    // Gemini excels at multimodal tasks
+    "multimodal-looker": { 
+      "model": "google/gemini-3-flash-preview" 
+    }
+  },
+  
+  // Configure all categories for optimal task delegation
+  "categories": {
+    "quick": { 
+      "model": "anthropic/claude-haiku-4-5" 
+    },
+    
+    "visual-engineering": { 
+      "model": "google/gemini-3-pro-preview",
+      "prompt_append": "Use modern React patterns, shadcn/ui components, and Tailwind CSS."
+    },
+    
+    "ultrabrain": { 
+      "model": "openai/gpt-5.2-codex",
+      "variant": "xhigh",
+      "prompt_append": "Deep reasoning required. Take time to analyze thoroughly."
+    },
+    
+    "artistry": { 
+      "model": "google/gemini-3-pro-preview",
+      "variant": "max"
+    },
+    
+    "writing": { 
+      "model": "google/gemini-3-flash-preview" 
+    },
+    
+    "unspecified-low": { 
+      "model": "anthropic/claude-sonnet-4-5" 
+    },
+    
+    "unspecified-high": { 
+      "model": "anthropic/claude-opus-4-5",
+      "variant": "max"
+    }
+  },
+  
+  // Background task concurrency limits
+  "background_task": {
+    "defaultConcurrency": 5,
+    "providerConcurrency": {
+      "anthropic": 3,  // Conservative - Anthropic has strict rate limits
+      "openai": 5,
+      "google": 10     // Google typically has higher limits
+    },
+    "modelConcurrency": {
+      "anthropic/claude-opus-4-5": 2  // Limit expensive model to control costs
+    }
+  },
+  
+  // Git commit behavior
+  "git_master": {
+    "commit_footer": true,
+    "include_co_authored_by": true
+  }
+}

@@ -10,10 +10,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
-  server: {
+    server: {
     port: 6001,
     strictPort: true,
     proxy: {
+      '/api/ingress': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ingress/, '/api/v1')
+      },
       '/api/omega': {
         target: 'http://localhost:8765',
         changeOrigin: true,

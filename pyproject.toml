@@ -1,3 +1,15 @@
+[tool.poetry]
+name = "soma"
+version = "0.1.0"
+description = "Soma: The Distributed Organism - A biomorphic knowledge ecosystem"
+authors = ["SigmaDev11 <steynsean11@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.pyright]
 exclude = [
     "**/node_modules",

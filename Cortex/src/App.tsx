@@ -8,11 +8,13 @@ import { ToastContainer } from '@/components/ui/toast';
 
 // Lazy load feature components
 const Dashboard = lazy(() => import('@/components/Dashboard').then(module => ({ default: module.Dashboard })));
-const CaptureControl = lazy(() => import('@/components/features/capture/CaptureControl').then(module => ({ default: module.CaptureControl })));
-const IngestControl = lazy(() => import('@/components/features/ingest/IngestControl').then(module => ({ default: module.IngestControl })));
-const MemosControl = lazy(() => import('@/components/features/memos/MemosControl').then(module => ({ default: module.MemosControl })));
 const CortexBridge = lazy(() => import('@/components/pages/CortexBridge').then(module => ({ default: module.CortexBridge })));
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
+const InGressPage = lazy(() => import('@/pages/InGressPage').then(module => ({ default: module.InGressPage })));
+const InGestPage = lazy(() => import('@/pages/InGestPage').then(module => ({ default: module.InGestPage })));
+const OmegaKGPage = lazy(() => import('@/pages/OmegaKGPage').then(module => ({ default: module.OmegaKGPage })));
+const MemosPage = lazy(() => import('@/pages/MemosPage').then(module => ({ default: module.MemosPage })));
+const TelemetryPage = lazy(() => import('@/pages/TelemetryPage').then(module => ({ default: module.TelemetryPage })));
 
 export default App;
 
@@ -69,13 +71,17 @@ function App() {
         {(() => {
             switch (currentView) {
             case 'omega':
-                return <CaptureControl />;
+                return <OmegaKGPage />;
             case 'ingest':
-                return <IngestControl />;
+                return <InGestPage />;
             case 'memos':
-                return <MemosControl />;
+                return <MemosPage />;
             case 'cortex':
                 return <CortexBridge />;
+            case 'ingress':
+                return <InGressPage />;
+            case 'telemetry':
+                return <TelemetryPage />;
             case 'settings':
                 return <SettingsPage />;
             case 'dashboard':
