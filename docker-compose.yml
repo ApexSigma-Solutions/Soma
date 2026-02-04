@@ -228,7 +228,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: apexsigma.postgres.soma
     ports:
-      - "127.0.0.1:6000:5432"  # Postgres (local only)
+      - "127.0.0.1:5432:5432"  # Postgres (local only, changed from 6000 due to Windows excluded port range)
     networks:
       - default
     environment:
