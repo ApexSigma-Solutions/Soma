@@ -84,8 +84,8 @@ $Script:LogLevelValue = @{
 $Script:Services = @{
     'Docker-Postgres' = @{
         Type        = 'Docker'
-        Port        = 6000
-        HealthCheck = { Test-DatabaseConnection -Port 6000 }
+        Port        = 5432
+        HealthCheck = { Test-DatabaseConnection -Port 5432 }
         Command     = 'docker compose up -d'
         Priority    = 1
         MaxRetries  = 5
@@ -263,7 +263,7 @@ function Test-Port {
 }
 
 function Test-DatabaseConnection {
-    param([int]$Port = 6000)
+    param([int]$Port = 5432)
     
     try {
         $PgIsReady = Get-Command pg_isready -ErrorAction SilentlyContinue
