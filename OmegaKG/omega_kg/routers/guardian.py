@@ -1,10 +1,13 @@
 import os
+import uuid
 from fastapi import APIRouter, HTTPException, Header, Depends
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from datetime import datetime
 import logging
 import enum
+
+from omega_kg.services.cognitive import HybridCognitiveService
 
 from omega_kg.database.graph import graph_driver
 from omega_kg.vector_store import get_vector_store
@@ -202,6 +205,32 @@ class StoreEmbeddingRequest(BaseModel):
     node_label: str
     embedding: List[float]
     content: Optional[str] = None
+
+
+# === TN-SOMA-302: Guardian Proxy API Models ===
+
+
+class QueryRequest(BaseModel):
+    """Request for Guardian query endpoint (memOS read-only access)."""
+
+    cypher: str
+    limit: int = 10
+
+
+class QueryResponse(BaseModel):
+    """Response from Guardian query endpoint."""
+
+    status: str
+    count: int
+    results: List[Dict[str, Any]]
+
+
+class CortexIngestRequest(BaseModel):
+    """Request for Guardian ingest endpoint (InGest cognitive processing)."""
+
+    text: str
+    source: str
+    metadata: Dict[str, Any] = {}
 
 
 # =============================================================================
@@ -595,6 +624,182 @@ async def _store_vector(request: CommitRequest) -> Dict:
         node_label=node_label,
     )
     return {"success": True, "vector_id": vector_id}
+
+
+# =============================================================================
+# TN-SOMA-302: Guardian Proxy API Endpoints
+# =============================================================================
+
+
+@router.post("/query", response_model=QueryResponse)
+async def guardian_query(request: QueryRequest) -> QueryResponse:
+    """Execute a read-only Cypher query against Neo4j.
+
+    This endpoint is for memOS to query the graph without direct Neo4j access.
+    WRITE operations are blocked by the Guardian.
+
+    Args:
+        request: QueryRequest with cypher query and limit.
+
+    Returns:
+        QueryResponse with results.
+    """
+    cypher_lower = request.cypher.strip().lower()
+
+    # Block write operations
+    write_keywords = ["create", "merge", "delete", "set", "remove", "detach"]
+    if any(keyword in cypher_lower for keyword in write_keywords):
+        return QueryResponse(
+            status="rejected",
+            count=0,
+            results=[{"error": "WRITE operations not allowed via Guardian query"}],
+        )
+
+    try:
+        async with graph_driver.session() as session:
+            result = await session.run(request.cypher)
+            records = await result.data()
+            records = records[: request.limit]
+
+            return QueryResponse(
+                status="success",
+                count=len(records),
+                results=records,
+            )
+
+    except Exception as e:
+        logger.error(f"Guardian query failed: {e}")
+        return QueryResponse(
+            status="error",
+            count=0,
+            results=[{"error": str(e)}],
+        )
+
+
+class CortexIngestResponse(BaseModel):
+    """Response from Guardian ingest endpoint."""
+
+    success: bool
+    raw_id: str
+    nodes_created: int = 0
+    edges_created: int = 0
+    message: str = ""
+
+
+@router.post("/ingest", response_model=CortexIngestResponse)
+async def guardian_ingest(
+    request: CortexIngestRequest,
+    authorized: str = Depends(verify_soma_key),
+) -> CortexIngestResponse:
+    """Process text through cognitive pipeline and persist to Neo4j.
+
+    Called by InGest to process text via HybridCognitiveService.
+
+    Args:
+        request: CortexIngestRequest with text, source, metadata.
+        authorized: Validated by verify_soma_key dependency.
+
+    Returns:
+        CortexIngestResponse with processing results.
+    """
+    raw_id = str(uuid.uuid4())
+
+    try:
+        async with HybridCognitiveService() as cognitive:
+            result = await cognitive.process_ingestion(
+                text=request.text,
+                source=request.source,
+                metadata=request.metadata,
+            )
+
+        # Store in Neo4j
+        stats = await _persist_cognitive_result(raw_id, request.source, result)
+
+        return CortexIngestResponse(
+            success=True,
+            raw_id=raw_id,
+            nodes_created=stats.get("nodes_created", 0),
+            edges_created=stats.get("edges_created", 0),
+            message="Cognitive processing complete",
+        )
+
+    except Exception as e:
+        logger.error(f"Guardian ingest failed: {e}")
+        return CortexIngestResponse(
+            success=False,
+            raw_id=raw_id,
+            message=str(e),
+        )
+
+
+async def _persist_cognitive_result(raw_id: str, source: str, result) -> Dict[str, int]:
+    """Persist cognitive processing result to Neo4j.
+
+    Creates MemoryAtom with embedding and extracted graph.
+    """
+    embedding = result.embedding
+    graph = result.graph
+
+    async with graph_driver.session() as session:
+        # Create root MemoryAtom with embedding
+        await session.run(
+            """
+            MERGE (m:MemoryAtom {raw_id: $raw_id})
+            SET m.source = $source,
+                m.embedding = $embedding,
+                m.processed_at = datetime()
+            """,
+            raw_id=raw_id,
+            source=source,
+            embedding=embedding,
+        )
+
+        node_count = 1
+        edge_count = 0
+
+        # Create extracted nodes
+        for node in graph.nodes:
+            label = node.label
+            try:
+                validated_label = validate_node_label(label)
+            except HTTPException:
+                validated_label = "Concept"  # Fallback
+
+            props = dict(node.properties)
+            props["digest_id"] = raw_id
+
+            await session.run(
+                f"""
+                MERGE (n:{validated_label} {{id: $node_id, digest_id: $digest_id}})
+                SET n += $props
+                """,
+                node_id=node.id,
+                digest_id=raw_id,
+                props=props,
+            )
+            node_count += 1
+
+        # Create extracted edges
+        for edge in graph.edges:
+            edge_type = edge.type
+            try:
+                validated_type = validate_edge_type(edge_type)
+            except HTTPException:
+                validated_type = "RELATED_TO"  # Fallback
+
+            await session.run(
+                f"""
+                MATCH (src {{id: $source_id, digest_id: $digest_id}})
+                MATCH (tgt {{id: $target_id, digest_id: $digest_id}})
+                MERGE (src)-[r:{validated_type}]->(tgt)
+                """,
+                source_id=edge.source,
+                target_id=edge.target,
+                digest_id=raw_id,
+            )
+            edge_count += 1
+
+    return {"nodes_created": node_count, "edges_created": edge_count}
 
 
 @router.get("/health")

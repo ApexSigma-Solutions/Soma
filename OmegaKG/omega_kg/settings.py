@@ -271,6 +271,24 @@ class Settings(BaseSettings):
         None, validation_alias="PERPLEXITY_API_KEY_PRD"
     )
     gemini_api_key: Optional[str] = Field(None, validation_alias="GEMINI_API_KEY_PRD")
+
+    # === TN-SOMA-301: Hybrid Cognitive Service Configuration ===
+    # LLM Configuration (OpenAI format - works with Gemini, OpenAI, Ollama, etc.)
+    llm_api_key: Optional[str] = Field(None, validation_alias="LLM_API_KEY")
+    llm_base_url: str = Field(
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        validation_alias="LLM_BASE_URL",
+    )
+    llm_model: str = Field("gemini-1.5-flash", validation_alias="LLM_MODEL")
+
+    # Embedding Configuration (Docker Model Runner)
+    embed_base_url: str = Field(
+        "http://localhost:12434", validation_alias="EMBED_BASE_URL"
+    )
+    embed_model: str = Field(
+        "ai/qwen3-embedding:0.6B-F16", validation_alias="EMBED_MODEL"
+    )
+
     ollama_okg_api_key: Optional[str] = Field(
         None, validation_alias="OLLAMA_OKG_API_KEY_PRD_ID"
     )
@@ -400,8 +418,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Neo4j password must be alphanumeric only (Mirmir EVT-50N42). "
                 "Special characters cause auth rate-limiting that locks the Brain. "
-                f"Current value contains disallowed characters. "
-                f"Use the required value: LMKXBmMtMMRnAdeotR81FEIZ2UFnD0Ec"
+                "Current value contains disallowed characters. "
+                "Use the required value: LMKXBmMtMMRnAdeotR81FEIZ2UFnD0Ec"
             )
         return v
 

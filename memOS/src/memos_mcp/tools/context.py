@@ -1,12 +1,14 @@
 """
 Context tools for querying OmegaKG and PGVector.
+
+TN-SOMA-304: Refactored to use OmegaKGClient instead of direct Neo4j driver.
 """
 
 from typing import Any, Dict, List, Optional
 import logging
 
 from ..database.pgvector_store import get_pgvector_store
-from ..database.neo4j import get_neo4j_driver
+from ..services.omegakg_client import OmegaKGClient
 from ..memory import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -34,12 +36,6 @@ async def retrieve_context(
     redis = get_redis_client()
 
     # 1. Fetch Working Memory (Redis)
-    # We use the agent_id or session_id if available to scope this
-    # For now, if no session_id is passed, we might miss specific context
-    # ideally retrieve_context should take session_id.
-    # Looking at the signature, we don't have session_id.
-    # Let's add session_id as an optional arg or rely on agent_id matching session.
-    # For this iteration, we'll try to fetch recent scratchpad if agent_id is treated as session.
     working_context = {}
     if agent_id:
         working_context = await redis.get_working_memory(agent_id)
@@ -82,7 +78,9 @@ async def get_concepts(
     concept_id: str, depth: int = 1, relationship_types: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
-    Retrieve related concepts from the Neo4j knowledge graph.
+    Retrieve related concepts from the OmegaKG knowledge graph via Guardian.
+
+    TN-SOMA-304: Uses OmegaKGClient instead of direct Neo4j driver.
 
     Args:
         concept_id: The ID/Name of the starting concept
@@ -92,66 +90,66 @@ async def get_concepts(
     Returns:
         Graph subgraph showing related concepts
     """
-    driver = get_neo4j_driver()
-    if not driver:
-        return {
-            "concept": concept_id,
-            "error": "Neo4j driver not initialized",
-            "relations": [],
-        }
+    client = OmegaKGClient()
 
-    query = """
-    MATCH (start)
-    WHERE (start.name = $concept_id OR start.id = $concept_id)
-    CALL apoc.path.subgraphAll(start, {
-        maxLevel: $depth,
-        relationshipFilter: $rel_filter
-    })
-    YIELD nodes, relationships
-    RETURN nodes, relationships
+    # Build relationship filter clause
+    rel_clause = ""
+    if relationship_types:
+        rel_types = "|".join([f":{t}" for t in relationship_types])
+        rel_clause = f"-[{rel_types}*0..{depth}]-"
+    else:
+        rel_clause = f"-[*0..{depth}]-"
+
+    # Simple traversal query (APOC may not be available via Guardian)
+    query = f"""
+    MATCH (start)-[r{rel_clause}](related)
+    WHERE start.name = $concept_id OR start.id = $concept_id
+    RETURN DISTINCT start, type(r) as rel_type, related
+    LIMIT 50
     """
 
-    # Construct relationship filter (e.g., "RELATED_TO>|DEPENDS_ON")
-    rel_filter = ">|<".join(relationship_types) if relationship_types else ""
-
     try:
-        with driver.session() as session:
-            result = session.run(
-                query, concept_id=concept_id, depth=depth, rel_filter=rel_filter
-            )
-            record = result.single()
+        # Note: Guardian query uses different parameter passing
+        # Using a simpler query that works with string interpolation
+        simple_query = f"""
+        MATCH (start)
+        WHERE start.name = '{concept_id}' OR start.id = '{concept_id}'
+        OPTIONAL MATCH (start)-[r]->(related)
+        RETURN start, type(r) as rel_type, related
+        LIMIT 50
+        """
 
-            if not record:
-                return {
-                    "concept": concept_id,
-                    "message": "Concept not found",
-                    "relations": [],
-                }
+        results = await client.query(simple_query, limit=50)
 
-            nodes = [dict(node) for node in record["nodes"]]
-            rels = [
-                {
-                    "start": rel.start_node["name"]
-                    if "name" in rel.start_node
-                    else rel.start_node.id,
-                    "type": rel.type,
-                    "end": rel.end_node["name"]
-                    if "name" in rel.end_node
-                    else rel.end_node.id,
-                    "properties": dict(rel),
-                }
-                for rel in record["relationships"]
-            ]
+        nodes = []
+        rels = []
+        seen_nodes = set()
 
-            return {
-                "concept": concept_id,
-                "node_count": len(nodes),
-                "nodes": nodes,
-                "relationships": rels,
-            }
+        for record in results:
+            if record.get("start") and record["start"] not in seen_nodes:
+                nodes.append(record["start"])
+                seen_nodes.add(str(record["start"]))
+            if record.get("related") and record["related"] not in seen_nodes:
+                nodes.append(record["related"])
+                seen_nodes.add(str(record["related"]))
+            if record.get("rel_type"):
+                rels.append(
+                    {
+                        "start": concept_id,
+                        "type": record["rel_type"],
+                        "end": str(record.get("related", {}).get("name", "unknown")),
+                    }
+                )
+
+        return {
+            "concept": concept_id,
+            "node_count": len(nodes),
+            "nodes": nodes,
+            "relationships": rels,
+        }
 
     except Exception as e:
-        logger.error(f"Neo4j query failed: {e}")
+        logger.error(f"OmegaKG query failed: {e}")
         return {"concept": concept_id, "error": str(e), "relations": []}
 
 

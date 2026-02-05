@@ -1,8 +1,11 @@
 """Soma-specific MCP tools for memOS.
 
+TN-SOMA-304: Handshake Protocol - memOS uses HTTP to talk to OmegaKG Guardian.
+All Neo4j access is now proxied through the Guardian API.
+
 Tools for interacting with the Soma ecosystem:
 - InGress (sensory data ingestion)
-- OmegaKG (graph queries and codex promotion)
+- OmegaKG (graph queries via Guardian API)
 """
 
 import json
@@ -12,17 +15,14 @@ from typing import Any, Dict
 
 import httpx
 
+from ..services.omegakg_client import OmegaKGClient
+
 logger = logging.getLogger(__name__)
 
 # Environment Configuration
 INGRESS_URL = os.getenv("SOMA_INGRESS_URL", "http://localhost:8000")
 INGRESS_API_KEY = os.getenv("SOMA_INGRESS_KEY", "sigma-dev-secret-key")
 OMEGAKG_URL = os.getenv("OMEGA_KG_URL", "http://localhost:8765")
-
-# Neo4j read-only client (for query_brain tool)
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://apexsigma.neo4j.stable:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "omega_user")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "omega_dev_password")
 
 
 # ============================================================================
@@ -57,19 +57,21 @@ async def ingest_signal(
             )
             response.raise_for_status()
             data = response.json()
-            logger.info("signal_ingested", ref=data.get("ref"), source=source)
+            logger.info(
+                "signal_ingested", extra={"ref": data.get("ref"), "source": source}
+            )
             return f"✓ Signal ingested: {data.get('ref', 'unknown')}"
 
         except httpx.HTTPError as e:
-            logger.error("ingress_failed", error=str(e))
+            logger.error("ingress_failed", extra={"error": str(e)})
             return f"✗ Ingestion failed: {str(e)}"
 
 
 # ============================================================================
-# Tool: query_brain
+# Tool: query_brain (TN-SOMA-304: Uses Guardian API)
 # ============================================================================
 async def query_brain(cypher: str, limit: int = 10) -> str:
-    """Search the Neo4j knowledge graph (read-only).
+    """Search the Neo4j knowledge graph via OmegaKG Guardian (read-only).
 
     Execute Cypher queries against the Soma Brain. Only SELECT/MATCH queries
     are allowed - no WRITE operations (CREATE/MERGE/DELETE).
@@ -81,36 +83,21 @@ async def query_brain(cypher: str, limit: int = 10) -> str:
     Returns:
         JSON representation of query results
     """
-    # Validate read-only query
-    cypher_lower = cypher.strip().lower()
-    if any(
-        keyword in cypher_lower
-        for keyword in ["create", "merge", "delete", "set", "remove"]
-    ):
-        return "✗ WRITE operations not allowed. memOS has read-only access to Neo4j."
-
     try:
-        from neo4j import AsyncGraphDatabase
+        client = OmegaKGClient()
+        results = await client.query(cypher, limit)
 
-        driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        logger.info("brain_query_success", extra={"count": len(results)})
+        return json.dumps(
+            {"status": "success", "count": len(results), "results": results},
+            indent=2,
+        )
 
-        async with driver.session() as session:
-            result = await session.run(cypher)
-            records = await result.data()
-
-            # Limit results
-            records = records[:limit]
-
-            await driver.close()
-
-            logger.info("brain_query_success", count=len(records))
-            return json.dumps(
-                {"status": "success", "count": len(records), "results": records},
-                indent=2,
-            )
-
+    except ValueError as e:
+        # Write operation rejected by Guardian
+        return f"✗ {str(e)}"
     except Exception as e:
-        logger.error("brain_query_failed", error=str(e))
+        logger.error("brain_query_failed", extra={"error": str(e)})
         return f"✗ Query failed: {str(e)}"
 
 
@@ -157,9 +144,9 @@ async def promote_to_codex(
             )
             response.raise_for_status()
             data = response.json()
-            logger.info("codex_promoted", type=constraint_type)
+            logger.info("codex_promoted", extra={"type": constraint_type})
             return f"✓ Promoted to Codex: {data.get('ref', 'unknown')}"
 
         except httpx.HTTPError as e:
-            logger.error("codex_promotion_failed", error=str(e))
+            logger.error("codex_promotion_failed", extra={"error": str(e)})
             return f"✗ Promotion failed: {str(e)}"

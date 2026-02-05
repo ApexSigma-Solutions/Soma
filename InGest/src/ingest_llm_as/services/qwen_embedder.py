@@ -1,10 +1,13 @@
 """Qwen3 Embedding Service for InGest.
 
 Provides async embedding generation using the Qwen3-Embed-0.6B-F16 model
-running on Ollama (localhost:12434).
+running on Docker Model Runner (localhost:12434).
+
+TN-SOMA-303: Updated to use Docker Model Runner naming conventions (EMBED_*)
+and kept as fallback for when OmegaKG Graph Native Cloud is offline.
 
 Implements CST-ORG-003: InGest (The Stomach) is the ONLY service allowed
-to call the Embedding Model.
+to call the Embedding Model (now via fallback).
 """
 
 import logging
@@ -15,17 +18,18 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Ollama Configuration per spec
-OLLAMA_BASE_URL = os.getenv("SOMA_OLLAMA_URL", "http://localhost:12434")
-QWEN_MODEL = os.getenv("SOMA_EMBED_MODEL", "ai/qwen3-embedding:0.6B-F16")
-EMBED_DIMENSION = int(os.getenv("SOMA_EMBED_DIMENSION", "768"))
+# Docker Model Runner Configuration (TN-SOMA-303: Graph Native Cloud)
+# Uses EMBED_BASE_URL and EMBED_MODEL per Docker Model Runner naming conventions
+EMBED_BASE_URL = os.getenv("EMBED_BASE_URL", "http://localhost:12434")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "ai/qwen3-embedding:0.6B-F16")
+EMBED_DIMENSION = int(os.getenv("EMBED_DIMENSION", "768"))
 
 
 class QwenEmbedder:
-    """Async Qwen3 Embedding client using Ollama API.
+    """Async Qwen3 Embedding client using OpenAI-compatible API (Docker Model Runner).
 
     Endpoints:
-        POST /api/embeddings - Generate embeddings for text
+        POST /v1/embeddings - Generate embeddings for text
 
     Example:
         ```python
@@ -37,14 +41,14 @@ class QwenEmbedder:
 
     def __init__(
         self,
-        base_url: str = OLLAMA_BASE_URL,
-        model: str = QWEN_MODEL,
+        base_url: str = EMBED_BASE_URL,
+        model: str = EMBED_MODEL,
         timeout: float = 30.0,
     ):
         """Initialize the embedder.
 
         Args:
-            base_url: Ollama server URL
+            base_url: Docker Model Runner server URL
             model: Model name for embedding
             timeout: Request timeout in seconds
         """
@@ -58,73 +62,42 @@ class QwenEmbedder:
         self._client = httpx.AsyncClient(timeout=self.timeout)
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         if self._client:
             await self._client.aclose()
             self._client = None
 
     async def embed(self, text: str) -> List[float]:
-        """Generate embedding vector for text.
+        """Generate embedding for a single text string.
 
         Args:
-            text: Text to embed
+            text: Input text to embed.
 
         Returns:
-            List of floats representing the embedding vector
+            List[float]: The embedding vector.
 
         Raises:
-            httpx.HTTPError: If the request fails
-            ValueError: If response is malformed
+            RuntimeError: If client is not initialized (context manager).
+            httpx.HTTPError: If API request fails.
         """
-        if not self._client:
-            raise RuntimeError("QwenEmbedder must be used as async context manager")
+        if self._client is None:
+            raise RuntimeError(
+                "QwenEmbedder must be used as an async context manager (async with ...)"
+            )
 
-        endpoint = f"{self.base_url}/api/embeddings"
+        # Docker Model Runner uses OpenAI-compatible /v1/embeddings
+        url = f"{self.base_url}/v1/embeddings"
+        payload = {"model": self.model, "input": text}
 
         try:
-            response = await self._client.post(
-                endpoint,
-                json={"model": self.model, "prompt": text},
-            )
+            response = await self._client.post(url, json=payload)
             response.raise_for_status()
-
             data = response.json()
-            embedding = data.get("embedding")
-
-            if not embedding:
-                raise ValueError(f"No embedding in response: {data}")
-
-            logger.debug(
-                "embedding_generated",
-                extra={"model": self.model, "dimension": len(embedding)},
-            )
-
-            return embedding
-
+            
+            # OpenAI format: data -> data[0] -> embedding
+            return data["data"][0]["embedding"]
+            
         except httpx.HTTPError as e:
-            logger.error("embedding_failed", extra={"error": str(e)})
+            logger.error(f"Embedding failed for text prefix '{text[:20]}...': {e}")
             raise
-
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            List of embedding vectors
-        """
-        return [await self.embed(text) for text in texts]
-
-
-# Factory function for singleton pattern
-_embedder_instance: QwenEmbedder | None = None
-
-
-async def get_embedder() -> QwenEmbedder:
-    """Get or create the singleton embedder instance."""
-    global _embedder_instance
-    if _embedder_instance is None:
-        _embedder_instance = QwenEmbedder()
-    return _embedder_instance

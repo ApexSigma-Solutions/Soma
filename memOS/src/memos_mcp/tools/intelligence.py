@@ -1,20 +1,21 @@
 """
-TN-400 / TN-OA-006: Intelligence Tool for memOS (Mirmir Logic Adapter)
+TN-400 / TN-OA-006 / TN-SOMA-304: Intelligence Tool for memOS (Mirmir Logic Adapter)
+
 Integrates the Mirmir Protocol into the memOS MCP Server.
+TN-SOMA-304: Uses OmegaKGClient for graph queries instead of direct Neo4j access.
 """
 
-import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from neo4j import GraphDatabase, basic_auth
-from typing import Dict, Any
 
 from ..services import ollama_service
+from ..services.omegakg_client import OmegaKGClient
 from ..database.pgvector_store import get_pgvector_store
 
 # Configure Logger
 logger = logging.getLogger("memos.mcp.intelligence")
+
 
 # --- DATA MODELS ---
 
@@ -41,17 +42,6 @@ class MirmirVerdict(BaseModel):
     suggested_modifications: Optional[str] = Field(
         None, description="How to fix the plan if rejected."
     )
-
-
-# --- NEO4J CONNECTION ---
-# Looks for env vars, defaults to standard local ports if missing
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-
-
-def get_db_driver():
-    return GraphDatabase.driver(NEO4J_URI, auth=basic_auth(NEO4J_USER, NEO4J_PASSWORD))
 
 
 # --- CORE LOGIC ---
@@ -81,7 +71,6 @@ async def consult_mirmir(
     rejection_reasons = []
 
     # 1. HARDCODED SAFETY NET (The "Prime Directives")
-    # Matches Omega Core logic: Protect 'domain/linear' and 'omega_kg' structure.
     if any("omega_kg" in e or "domain/linear" in e for e in affected_entities) and (
         "delete" in plan_text.lower() or "remove" in plan_text.lower()
     ):
@@ -95,37 +84,33 @@ async def consult_mirmir(
         risk_score += 0.9
         rejection_reasons.append("Attempted modification of locked Omega domain.")
 
-    # 2. DYNAMIC CODEX LOOKUP (Neo4j)
-    driver = None
+    # 2. DYNAMIC CODEX LOOKUP via OmegaKG Guardian (TN-SOMA-304)
     try:
-        driver = get_db_driver()
-        with driver.session() as session:
-            # Query active CodexRules
-            query = """
-            MATCH (r:CodexRule {status: 'ACTIVE'})
-            RETURN r.id AS id, r.content AS content, r.severity AS severity, r.keywords AS keywords
-            """
-            result = session.run(query)
+        client = OmegaKGClient()
+        query = """
+        MATCH (r:CodexRule {status: 'ACTIVE'})
+        RETURN r.id AS id, r.content AS content, r.severity AS severity, r.keywords AS keywords
+        """
+        records = await client.query(query, limit=50)
 
-            for record in result:
-                rule_keywords = record.get("keywords", [])
-                if rule_keywords and any(
-                    k.lower() in plan_text.lower() for k in rule_keywords
-                ):
-                    citations.append(
-                        CodexCitation(
-                            rule_id=record["id"],
-                            content=record["content"],
-                            severity=record["severity"],
-                        )
+        for record in records:
+            rule_keywords = record.get("keywords", []) or []
+            if rule_keywords and any(
+                k.lower() in plan_text.lower() for k in rule_keywords
+            ):
+                citations.append(
+                    CodexCitation(
+                        rule_id=record["id"],
+                        content=record["content"],
+                        severity=record["severity"],
                     )
-                    if record["severity"] == "CRITICAL":
-                        risk_score += 0.6
-                        rejection_reasons.append(f"Violates {record['id']}")
+                )
+                if record["severity"] == "CRITICAL":
+                    risk_score += 0.6
+                    rejection_reasons.append(f"Violates {record['id']}")
 
     except Exception as e:
-        logger.error(f"Failed to query Mirmir Cortex: {e}")
-        # Soft fail: If DB is down, proceed with caution (Warning) unless hardcoded rules tripped.
+        logger.error(f"Failed to query Mirmir Cortex via Guardian: {e}")
         if risk_score == 0:
             citations.append(
                 CodexCitation(
@@ -134,17 +119,12 @@ async def consult_mirmir(
                     severity="WARNING",
                 )
             )
-        if driver:
-            driver.close()
 
     # 3. SEMANTIC CODEX LOOKUP (Vector Store)
     try:
         store = get_pgvector_store()
-        # Embed the plan to find semantically related constraints
         query_embedding = await ollama_service.get_embedding(plan_text)
 
-        # Search for memories tagged as 'codex' or 'mirmir'
-        # We assume constraints are synced to PGVector with specific tags
         vector_results = await store.search_memories(
             query_embedding=query_embedding,
             top_k=5,
@@ -153,7 +133,6 @@ async def consult_mirmir(
         )
 
         for r in vector_results:
-            # Avoid duplicates if ID matches
             r_id = r.get("metadata", {}).get("rule_id", f"VEC-{r['id']}")
             if not any(c.rule_id == r_id for c in citations):
                 citations.append(
@@ -204,14 +183,13 @@ async def verify_implementation(
     """
     logger.info(f"Verifying implementation for: {plan_text[:50]}...")
 
-    # 1. Consult Mirmir for constraints
     mirmir_verdict = await consult_mirmir(plan_text, "Verification", file_paths)
 
     if not mirmir_verdict.approved:
         return {
             "status": "REJECTED_BY_POLICY",
             "message": "Plan violates Core Mirmir Protocols.",
-            "violations": [c.dict() for c in mirmir_verdict.citations],
+            "violations": [c.model_dump() for c in mirmir_verdict.citations],
             "reasoning": mirmir_verdict.reasoning,
         }
 
@@ -221,7 +199,6 @@ async def verify_implementation(
             [f"- [{c.severity}] {c.content}" for c in mirmir_verdict.citations]
         )
 
-    # 2. Construct Prompt for Qwen
     system_prompt = (
         "You are an expert code reviewer and guardian of the Mirmir Protocol.\n"
         "Your job is to verify that the implementation matches the plan AND adheres to the constraints.\n"
@@ -250,7 +227,6 @@ STATUS: [PASS/FAIL/WARN]
 FEEDBACK: [Concise explanation]
 """
 
-    # 3. Call Qwen
     try:
         response = await ollama_service.chat_completion(
             messages=[
@@ -263,7 +239,7 @@ FEEDBACK: [Concise explanation]
 
         return {
             "status": "REVIEW_COMPLETE",
-            "mirmir_citations": [c.dict() for c in mirmir_verdict.citations],
+            "mirmir_citations": [c.model_dump() for c in mirmir_verdict.citations],
             "qwen_feedback": response,
         }
 
