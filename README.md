@@ -45,20 +45,23 @@ d:/projects/Soma/
 
 ## Documentation
 
-Primary governance and context are located in the Vault:
-- **Governance**: [`OmegaVault/ApexSigma/Development/Projects/Soma/Architecture/`](OmegaVault/ApexSigma/Development/Projects/Soma/Architecture/)
-- **Operations**: [`OmegaVault/ApexSigma/Development/Projects/Soma/Operations/`](OmegaVault/ApexSigma/Development/Projects/Soma/Operations/)
-- **History/E2E**: [`OmegaVault/ApexSigma/Development/Projects/Soma/History/`](OmegaVault/ApexSigma/Development/Projects/Soma/History/)
+Primary governance and context are maintained in the Vault:
+
+- **Architecture**: [`OmegaVault/ApexSigma/Development/Projects/Soma/architecture/`](OmegaVault/ApexSigma/Development/Projects/Soma/architecture/)
+- **Operations**: [`OmegaVault/ApexSigma/Development/Projects/Soma/operations/`](OmegaVault/ApexSigma/Development/Projects/Soma/operations/)
+- **Legacy Archives**: [`OmegaVault/ApexSigma/Development/Projects/Soma/archive/`](OmegaVault/ApexSigma/Development/Projects/Soma/archive/)
 
 ### Key Reference
 
 - **Agent Guidelines**: [`AGENTS.md`](./AGENTS.md)
 - **Script Reference**: [`scripts/SCRIPTS_REFERENCE.md`](./scripts/SCRIPTS_REFERENCE.md)
-- **Meal Trace Guide**: [`archive/verification/2026-01-27/MEAL_TRACE_GUIDE.md`](./archive/verification/2026-01-27/MEAL_TRACE_GUIDE.md)
+- **Startup Guide**: [`OmegaVault/ApexSigma/Development/Projects/Soma/operations/startup-guide.md`](OmegaVault/ApexSigma/Development/Projects/Soma/operations/startup-guide.md)
+- **Meal Trace Guide**: [`OmegaVault/ApexSigma/Development/Projects/Soma/operations/meal-trace-guide.md`](OmegaVault/ApexSigma/Development/Projects/Soma/operations/meal-trace-guide.md)
 
 ## Development Workflow
 
 Soma uses a **Native Organism Workflow**:
+
 - **Executive**: Use `orchestrator.py` to manage service lifecycles.
 - **Verification**: All changes MUST pass a `trace-meal.ps1` verification.
 - **Memory**: Record architectural decisions to `memOS.MCP` via `promote_memory`.
@@ -66,9 +69,10 @@ Soma uses a **Native Organism Workflow**:
 ## Legacy & Archives
 
 Historical OmegaKG documentation is archived in:
+
 - `archive/legacy/`
 - `OmegaVault/ApexSigma/development/projects/Soma/archive/`
 
 ---
 
-*Sanitized and Reorganized: 2026-01-28 (Soma Genesis)*
+**Sanitized and Reorganized**: 2026-01-28 (Soma Genesis)

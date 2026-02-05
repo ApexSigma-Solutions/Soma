@@ -57,12 +57,24 @@ SERVICES = {
 def spawn(name: str, config: dict) -> None:
     """Spawn a service in its own console window."""
     logger.info("spawning_organ", service=name, cwd=config["cwd"])
+
+    # Sanitize environment to prevent venv leaks
+    env = os.environ.copy()
+    env.pop("VIRTUAL_ENV", None)
+    env.pop("PYTHONHOME", None)
+    env.pop("PYTHONPATH", None)
+
+    # Ensure the PATH doesn't prioritize the orchestrator's venv
+    path_segments = env.get("PATH", "").split(os.pathsep)
+    env["PATH"] = os.pathsep.join([s for s in path_segments if ".venv" not in s])
+
     try:
         # Use CREATE_NEW_CONSOLE on Windows to give each service a visible log window
         subprocess.Popen(
             config["cmd"],
             cwd=config["cwd"],
             creationflags=subprocess.CREATE_NEW_CONSOLE,
+            env=env,
         )
         logger.info("organ_heartbeat_detected", service=name)
     except Exception as e:

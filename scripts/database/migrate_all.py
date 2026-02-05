@@ -10,7 +10,7 @@ import sys
 import io
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 import argparse
 
 # Fix Windows console encoding for Unicode characters
@@ -85,13 +85,23 @@ class MigrationManager:
         print(f"Path: {service_path}")
         print(f"Command: {' '.join(command)}")
 
+        # Sanitize environment to prevent venv leaks
+        env = os.environ.copy()
+        env.pop("VIRTUAL_ENV", None)
+        env.pop("PYTHONHOME", None)
+        env.pop("PYTHONPATH", None)
+
+        # Ensure the PATH doesn't prioritize a different venv
+        path_segments = env.get("PATH", "").split(os.pathsep)
+        env["PATH"] = os.pathsep.join([s for s in path_segments if ".venv" not in s])
+
         result = subprocess.run(
             command,
             cwd=service_path,
             capture_output=True,
             text=True,
             timeout=120,
-            env=os.environ.copy(),  # Inherit environment variables including SOMA_PG_DSN
+            env=env,
         )
 
         print(result.stdout)
