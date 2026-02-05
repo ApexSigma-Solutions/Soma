@@ -139,11 +139,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",  # Cortex Dashboard
+        "http://localhost:5173",  # Cortex Dashboard (legacy)
+        "http://localhost:6001",  # Cortex Dashboard (current)
         "http://localhost:8765",  # OmegaKG
         "http://localhost:8000",  # InGress
         "http://localhost:8768",  # memOS
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:6001",
         "http://127.0.0.1:8765",
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8768",

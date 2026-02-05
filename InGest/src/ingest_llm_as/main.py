@@ -98,7 +98,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:5173",  # Cortex dev
+            "http://localhost:5173",  # Cortex dev (legacy)
+            "http://localhost:6001",  # Cortex (current)
+            "http://127.0.0.1:6001",  # Cortex (IP)
             "http://localhost:3000",  # Alternative dev
         ],
         allow_credentials=True,
